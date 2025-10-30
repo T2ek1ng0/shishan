@@ -15,4 +15,4 @@ npm install electron --save-dev
 
 dataset来源:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
 
-模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0，在gpt的助力下换了pytorch和resnet。
+模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换了pytorch和resnet。
