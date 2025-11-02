@@ -3,17 +3,63 @@
 <head>
   <meta charset="UTF-8">
   <title>稿子件是地球之主</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 15px; /* 按钮间距 */
+    }
+
+    #buttons {
+      display: flex;           /* 让里面的按钮使用 flex 布局 */
+      flex-direction: column;  /* 垂直排列 */
+      align-items: center;     /* 水平居中 */
+      gap: 15px;               /* 按钮间距 */
+    }
+
+    #buttons button {
+      width: 180px;       /* 按钮宽度 */
+      height: 50px;       /* 按钮高度 */
+      font-size: 16px;    /* 文字大小 */
+      border-radius: 8px; /* 圆角 */
+      cursor: pointer;
+    }
+
+    img#preview {
+      max-width: 90%;
+      max-height: 200px;
+      margin-top: 10px;
+    }
+
+    p#result {
+      width: 90%;
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
 </head>
+
 <body>
-  <button onclick="bird_classify()">认鸟</button>
+<div id="preview_area">
   <img id="preview" style="display:none;" />
   <p id="result"></p>
-  <script src="bird_classify.js"></script>
+</div>
+
+<div id="buttons">
+  <button onclick="bird_classify()">认鸟</button>
   <button onclick="search_bird()">查鸟</button>
-  <script src="search_bird.js"></script>
   <button onclick="todays_recommend()">今日打鸟推荐</button>
+  <button onclick="my_record()">我的记录表</button>
+</div>
+<script src="bird_classify.js"></script>
+<script src="search_bird.js"></script>
   <script>
     async function todays_recommend(){ await ipcRenderer.invoke('todays_newpage') }
+    async function my_record(){ await ipcRenderer.invoke('open_records')}
   </script>
 </body>
 </html>

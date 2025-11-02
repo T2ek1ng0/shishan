@@ -1,7 +1,14 @@
 const {app, BrowserWindow, ipcMain, Menu, dialog} = require('electron')
 const { spawn } = require('child_process')
 const path = require('path')
+const fs = require('fs')
 const axios = require('axios')
+const RECORDS_FILE = path.join(__dirname, 'records.json')
+if (!fs.existsSync(RECORDS_FILE)) {
+    fs.writeFileSync(RECORDS_FILE, JSON.stringify([]), 'utf-8')
+}
+
+
 let mainWindow
 function createWindow(){
     mainWindow = new BrowserWindow({
@@ -10,10 +17,6 @@ function createWindow(){
         width: 600,
         height: 400,
         show: false,
-        maxWidth: 600,
-        minWidth: 600,
-        maxHeight: 400,
-        minHeight: 400,
         resizable: false,
         webPreferences: {
             nodeIntegration: true,
@@ -43,12 +46,8 @@ function createWindow(){
     Menu.setApplicationMenu(menu)
     //mainWindow.webContents.openDevTools()
     mainWindow.loadFile('index.html')
-    mainWindow.on('ready-to-show', ()=>{
-        mainWindow.show()
-    })
-    mainWindow.on('close', ()=>{
-        mainWindow = null
-    })
+    mainWindow.on('ready-to-show', ()=> mainWindow.show())
+    mainWindow.on('close', ()=> mainWindow = null)
 }
 app.whenReady().then(createWindow)
 ipcMain.handle('select-image', async () => {
@@ -114,12 +113,8 @@ ipcMain.handle('search_bird_newpage', async()=>{
     bird_searchWin.setMenu(null)
     bird_searchWin.loadFile("bird_select_page.html")
     //bird_selectpageWin.webContents.openDevTools()
-    bird_searchWin.on('ready-to-show',()=>{
-        bird_searchWin.show()
-    })
-    bird_searchWin.on('close',()=>{
-        bird_searchWin = null
-    })
+    bird_searchWin.on('ready-to-show',()=> bird_searchWin.show())
+    bird_searchWin.on('close',()=> bird_searchWin = null)
 })
 
 ipcMain.handle('area_search', async()=>{
@@ -166,12 +161,8 @@ ipcMain.handle('todays_newpage', async()=>{
     })
     recomWin.setMenu(null)
     recomWin.loadFile("recommend.html")
-    recomWin.on('ready-to-show',()=>{
-        recomWin.show()
-    })
-    recomWin.on('close', ()=>{
-        recomWin = null
-    })
+    recomWin.on('ready-to-show',()=> recomWin.show())
+    recomWin.on('close', ()=> recomWin = null)
 })
 
 ipcMain.handle('todays_recommend', async(event, area)=>{
@@ -213,3 +204,70 @@ async function call_llm(promptText){
         throw new Error(err.response?.data?.message || err.message || '未知错误')
     }
 }
+
+let recordsWin
+ipcMain.handle('open_records', async()=>{
+    recordsWin = new BrowserWindow({
+        width: 1000,
+        height: 800,
+        // parent: mainWindow,
+        // modal: false,
+        resizable: true,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+        }
+    })
+    recordsWin.setMenu(null)
+    recordsWin.loadFile('records.html')
+    //recordsWin.webContents.openDevTools()
+    recordsWin.on('ready-to-show', () => recordsWin.show())
+    recordsWin.on('close', () => recordsWin = null)
+})
+
+ipcMain.handle('get_records', async () => {
+    if (!fs.existsSync(RECORDS_FILE)) return []
+    const data = fs.readFileSync(RECORDS_FILE, 'utf-8')
+    return JSON.parse(data)
+})
+
+ipcMain.handle('add_record', async (event, record) => {
+    let records = []
+    if (fs.existsSync(RECORDS_FILE)) {
+        records = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf-8'))
+    }
+    records.push(record)
+    fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8')
+    return true
+})
+
+let addRecordWin
+ipcMain.handle('open_add_record_window', async () => {
+    if (addRecordWin) return
+    addRecordWin = new BrowserWindow({
+        width: 400,
+        height: 350,
+        parent: recordsWin,
+        modal: true,
+        resizable: false,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    })
+    addRecordWin.setMenu(null)
+    addRecordWin.loadFile('add_record.html')
+    addRecordWin.on('ready-to-show', () => addRecordWin.show())
+    addRecordWin.on('close', () => addRecordWin = null)
+})
+
+ipcMain.handle('delete_record', async (event, index) => {
+    if (!fs.existsSync(RECORDS_FILE)) return false;
+    let records = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf-8'));
+    if (index < 0 || index >= records.length) return false;
+    records.splice(index, 1)
+    fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
+    return true;
+})
