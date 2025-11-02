@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>按地区检索</title>
+</head>
+<body>
+    <h2>请输入要检索的地区</h2>
+    <input id="area_input" type="text" placeholder="请输入要检索的地区">
+    <button onclick="area_searcher()">搜索</button>
+    <div id="area_result"></div>
+    <script>
+         const { ipcRenderer } = require('electron')
+         window.ipcRenderer = ipcRenderer
+
+         async function area_searcher() {
+             const area = document.getElementById("area_input").value.trim()
+             const resultElement = document.getElementById("area_result")
+
+             if (!area) {
+                 resultElement.innerText = "请输入要检索的地区"
+                 return
+             }
+
+             // 显示加载提示
+             resultElement.innerText = "正在检索中，请稍候..."
+
+             try {
+                 const result = await ipcRenderer.invoke('area_searcher', area)
+                 resultElement.innerText = `检索结果：${result}`
+             } catch (err) {
+                 resultElement.innerText = `调用出错：${err}`
+             }
+         }
+    </script>
+</body>
+</html>

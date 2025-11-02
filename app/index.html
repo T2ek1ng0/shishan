@@ -6,9 +6,14 @@
 </head>
 <body>
   <button onclick="bird_classify()">认鸟</button>
-  <br>
   <img id="preview" style="display:none;" />
   <p id="result"></p>
   <script src="bird_classify.js"></script>
+  <button onclick="search_bird()">查鸟</button>
+  <script src="search_bird.js"></script>
+  <button onclick="todays_recommend()">今日打鸟推荐</button>
+  <script>
+    async function todays_recommend(){ await ipcRenderer.invoke('todays_newpage') }
+  </script>
 </body>
 </html>

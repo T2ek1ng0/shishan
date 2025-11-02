@@ -50,7 +50,7 @@
             alert('请先选择图片')
             return
         }
-        document.getElementById('result').innerText = '正在分类，请稍候...'
+        document.getElementById('result').innerText = '识别中，请稍候...'
         try {
             const result = await ipcRenderer.invoke('classify-image', currentImagePath)
             document.getElementById('result').innerText = `识别结果：${result}`

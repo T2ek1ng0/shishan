@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>按名称检索</title>
+</head>
+<body>
+    <h2>请输入要检索的鸟类名称</h2>
+    <input id="name_input" type="text" placeholder="请输入鸟类的名称">
+    <button onclick="name_searcher()">搜索</button>
+    <div id="name_result"></div>
+    <script>
+          const { ipcRenderer } = require('electron')
+          window.ipcRenderer = ipcRenderer
+
+          async function name_searcher() {
+              const name = document.getElementById("name_input").value.trim()
+              const resultElement = document.getElementById("name_result")
+
+              if (!name) {
+                  resultElement.innerText = "请输入鸟的名称"
+                  return
+              }
+
+              // 显示加载提示
+              resultElement.innerText = "正在检索中，请稍候..."
+
+              try {
+                  const result = await ipcRenderer.invoke('name_searcher', name)
+                  resultElement.innerText = `检索结果：${result}`
+              } catch (err) {
+                  resultElement.innerText = `调用出错：${err}`
+              }
+          }
+    </script>
+</body>
+</html>

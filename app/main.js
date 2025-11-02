@@ -1,6 +1,7 @@
 const {app, BrowserWindow, ipcMain, Menu, dialog} = require('electron')
 const { spawn } = require('child_process')
 const path = require('path')
+const axios = require('axios')
 let mainWindow
 function createWindow(){
     mainWindow = new BrowserWindow({
@@ -40,12 +41,12 @@ function createWindow(){
     ]
     let menu = Menu.buildFromTemplate(menutemp)
     Menu.setApplicationMenu(menu)
+    //mainWindow.webContents.openDevTools()
     mainWindow.loadFile('index.html')
     mainWindow.on('ready-to-show', ()=>{
         mainWindow.show()
     })
     mainWindow.on('close', ()=>{
-        console.log('mainWindow is closed')
         mainWindow = null
     })
 }
@@ -95,3 +96,120 @@ ipcMain.handle('classify-image', async (event, imagePath) => {
         })
     })
 })
+
+let bird_searchWin
+ipcMain.handle('search_bird_newpage', async()=>{
+    bird_searchWin = new BrowserWindow({
+        width: 500,
+        height: 600,
+        parent: mainWindow,
+        modal: true,
+        resizable: false,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+        }
+    })
+    bird_searchWin.setMenu(null)
+    bird_searchWin.loadFile("bird_select_page.html")
+    //bird_selectpageWin.webContents.openDevTools()
+    bird_searchWin.on('ready-to-show',()=>{
+        bird_searchWin.show()
+    })
+    bird_searchWin.on('close',()=>{
+        bird_searchWin = null
+    })
+})
+
+ipcMain.handle('area_search', async()=>{
+    bird_searchWin.loadFile("area_search.html")
+})
+
+ipcMain.handle('name_search', async()=>{
+    bird_searchWin.loadFile("name_search.html")
+})
+
+ipcMain.handle('area_searcher', async(event, area)=>{
+    const prompt = `「${area}」地区常见的鸟类有哪些？请简要概述`
+    try {
+        return await call_llm(prompt)
+    }
+    catch (err) {
+        return `调用llm出错：${err.message}`;
+    }
+})
+
+ipcMain.handle('name_searcher', async(event, name)=>{
+    const prompt = `请确认是否存在「${name}」这种鸟。如存在，请简要概述其基本习性和特征`
+    try {
+        return await call_llm(prompt)
+    }
+    catch (err) {
+        return `调用llm出错：${err.message}`;
+    }
+})
+
+let recomWin
+ipcMain.handle('todays_newpage', async()=>{
+    recomWin = new BrowserWindow({
+        width: 500,
+        height: 600,
+        parent: mainWindow,
+        modal: true,
+        resizable: false,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+        }
+    })
+    recomWin.setMenu(null)
+    recomWin.loadFile("recommend.html")
+    recomWin.on('ready-to-show',()=>{
+        recomWin.show()
+    })
+    recomWin.on('close', ()=>{
+        recomWin = null
+    })
+})
+
+ipcMain.handle('todays_recommend', async(event, area)=>{
+    const now = new Date()
+    const nowStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}`
+    const prompt = `请推荐今日「${nowStr}」在「${area}」适合观鸟的地点，以及在你推荐地点能观察到的鸟类，简要概述即可`
+    try {
+        return await call_llm(prompt)
+    }
+    catch (err) {
+        return `调用llm出错：${err.message}`;
+    }
+})
+
+const API_KEY = "sk-1817f4e4e7254f70aa6c45b957b4cc5c"
+const APP_ID = "2f91c1b54ec149f6b0ab4394169dd714"
+async function call_llm(promptText){
+    try {
+        const response = await axios.post(
+            `https://dashscope.aliyuncs.com/api/v1/apps/${APP_ID}/completion`,
+            {
+                input: {
+                    prompt: promptText
+                },
+                parameters: {},
+                debug: {},
+            },
+            {
+                headers: {
+                    "Authorization": `Bearer ${API_KEY}`,
+                    "Content-Type": "application/json",
+                }
+            }
+        )
+        return response.data.output?.text || JSON.stringify(response.data)
+
+    } catch (err) {
+        console.error('llm请求失败：', err)
+        throw new Error(err.response?.data?.message || err.message || '未知错误')
+    }
+}

@@ -1,5 +1,3 @@
-const { ipcRenderer } = require('electron')
-
 async function bird_classify() {
     const imagePath = await ipcRenderer.invoke('open-image-selector')
     if (!imagePath) return
