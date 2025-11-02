@@ -9,9 +9,10 @@ npm init -y
 #可以试试设置淘宝镜像源，gpt说会更快但本人用淘宝镜像源也下了8分钟。。
 #npm config set registry https://registry.npmmirror.com
 npm install electron --save-dev
+npm install axios
 ```
 
-下载好electron之后，在终端npm start就可以运行全ai0人工的前端小程序了。
+下载好electron之后，在app文件夹里打开终端，输入npm start就可以运行全ai0人工的前端小程序了。
 
 dataset来源:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
 
