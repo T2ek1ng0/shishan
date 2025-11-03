@@ -6,7 +6,7 @@ model_predict.py可以对单张照片输出预测结果(准确率几乎为0，�
 
 ### 运行屎山程序
 
-cd进入app
+安装依赖
 
 ```
 npm init -y
@@ -16,14 +16,24 @@ npm install electron --save-dev
 npm install axios
 ```
 
-下载好electron之后，在app文件夹里打开终端，输入npm start就可以运行全ai0人工的前端小程序了。
+创建虚拟环境(若已有venv文件夹则无需进行此操作)
+
+```
+pip install virtualenv
+cd {你存放代码的文件夹}
+virtualenv venv
+venv\Scripts\activate
+pip install torch torchvision pillow
+```
+
+在app文件夹里打开终端，输入npm start就可以运行全ai0人工的前端小程序了
 
 dataset:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
 
-模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换了pytorch和resnet。
+模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换成了pytorch和resnet
 
 ### 如何把屎山打包成exe
 
-cd进入app，`npm install --save-dev electron-builder`
+`npm install --save-dev electron-builder`
 
-以管理员身份运行powershell进入app，`npm run dist`
+以管理员身份运行powershell进入当前文件夹，`npm run dist`

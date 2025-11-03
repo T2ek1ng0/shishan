@@ -1,4 +1,3 @@
-# 文件名: classify.py
 import torch
 import os
 import sys
@@ -14,10 +13,29 @@ if len(sys.argv) < 2:
     print("Usage: python classify.py <image_path>")
     sys.exit(1)
 
+def resource_path(relative_path):
+    """获取资源的绝对路径；支持 PyInstaller 或 Electron asar 打包方式"""
+    try:
+        # Electron 打包后会把 Python 脚本放在 resources 目录下
+        base_path = sys._MEIPASS
+    except Exception:
+        # 开发环境下的脚本目录
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
 image_path = sys.argv[1]
+dataset_path = resource_path('dataset/train')
+ckpt_dir = resource_path('model_resnet50')
+if not os.path.exists(dataset_path):
+    print(f"Dataset directory not found: {dataset_path}")
+    sys.exit(1)
+
+if not os.path.exists(ckpt_dir):
+    print(f"Model directory not found: {ckpt_dir}")
+    sys.exit(1)
 
 # 1. 准备标签映射
-train_dataset = ImageFolder("dataset/train", transform=transforms.ToTensor())
+train_dataset = ImageFolder(dataset_path, transform=transforms.ToTensor())
 idx_to_label = {v: k for k, v in train_dataset.class_to_idx.items()}
 
 # 2. 设置设备
@@ -34,7 +52,6 @@ model.fc = nn.Sequential(
     nn.Linear(256, num_classes)
 )
 
-ckpt_dir = "model_resnet50"
 pth_files = [f for f in os.listdir(ckpt_dir) if f.endswith(".pth")]
 latest_ckpt = max(pth_files, key=lambda f: os.path.getmtime(os.path.join(ckpt_dir, f)))
 model.load_state_dict(torch.load(os.path.join(ckpt_dir, latest_ckpt), map_location=device))

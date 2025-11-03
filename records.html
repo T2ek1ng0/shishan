@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>我的观鸟记录</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #aaa; padding: 8px; text-align: left; cursor: pointer; }
+    tbody { display: block; max-height: 400px; overflow-y: auto; }
+    thead, tbody tr { display: table; width: 100%; table-layout: fixed; }
+    input { margin: 5px; }
+    #search { width: 200px; }
+    #addBtn { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+<h1>我的观鸟记录表</h1>
+
+<input id="search" placeholder="搜索...">
+<button onclick="add_records()">添加记录</button>
+
+<table>
+  <thead>
+  <tr>
+    <th data-field="time">观测时间</th>
+    <th data-field="location">地点</th>
+    <th data-field="count">数量</th>
+    <th data-field="species">种类</th>
+    <th data-field="gender">性别</th>
+    <th>操作</th>
+  </tr>
+  </thead>
+  <tbody id="records_body"></tbody>
+</table>
+
+<script>
+  const { ipcRenderer } = require('electron')
+  let records = []
+
+  async function loadRecords() {
+    records = await ipcRenderer.invoke('get_records')
+    displayRecords(records)
+  }
+
+  function displayRecords(data) {
+    const tbody = document.getElementById('records_body')
+    tbody.innerHTML = ''
+    data.forEach((r, idx) => {
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+            <td>${r.time}</td>
+            <td>${r.location}</td>
+            <td>${r.count}</td>
+            <td>${r.species}</td>
+            <td>${r.gender}</td>
+            <td><button class="delBtn" data-index="${idx}">删除</button></td>
+        `
+      tbody.appendChild(tr)
+    })
+
+    // 给删除按钮绑定事件
+    document.querySelectorAll('.delBtn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const index = parseInt(btn.dataset.index)
+        await ipcRenderer.invoke('delete_record', index)
+        loadRecords()  // 刷新表格
+      })
+    })
+  }
+
+  // 搜索功能
+  const searchInput = document.getElementById('search')
+  searchInput.addEventListener('input', () => {
+    const query = searchInput.value.toLowerCase()
+    const filtered = records.filter(r =>
+            r.time.toLowerCase().includes(query) ||
+            r.location.toLowerCase().includes(query) ||
+            r.species.toLowerCase().includes(query)
+    )
+    displayRecords(filtered)
+  })
+
+  // 排序功能
+  document.querySelectorAll('th').forEach(th => {
+    th.addEventListener('click', () => {
+      const field = th.dataset.field
+      const sorted = [...records].sort((a, b) => {
+        if(a[field] < b[field]) return -1
+        if(a[field] > b[field]) return 1
+        return 0
+      })
+      displayRecords(sorted)
+    })
+  })
+
+  // 记录功能
+  async function add_records(){ await ipcRenderer.invoke('open_add_record_window')}
+
+  loadRecords()
+  window.addEventListener('focus', loadRecords)
+</script>
+</body>
+</html>
+
