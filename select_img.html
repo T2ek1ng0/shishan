@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>认鸟</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+        img {
+            max-width: 90%;
+            max-height: 300px;
+            margin-top: 10px;
+            border-radius: 10px;
+        }
+        button {
+            margin: 10px;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<button id="selectBtn">选择图片</button>
+<button id="classifyBtn" disabled>开始认鸟</button>
+<div id="preview"></div>
+<div id="result" style="margin-top:20px;font-size:18px;font-weight:bold;"></div>
+
+<script>
+    const { ipcRenderer } = require('electron')
+    let currentImagePath = null
+
+    // 选择图片：让主进程帮我们打开 dialog
+    document.getElementById('selectBtn').addEventListener('click', async () => {
+        // 调用主进程的 select-image handler
+        const imagePath = await ipcRenderer.invoke('select-image')
+        if (imagePath) {
+            currentImagePath = imagePath
+            document.getElementById('preview').innerHTML = `<img src="file://${currentImagePath}" />`
+            document.getElementById('classifyBtn').disabled = false
+            document.getElementById('result').innerText = ''
+        }
+    })
+
+    // 分类
+    document.getElementById('classifyBtn').addEventListener('click', async () => {
+        if (!currentImagePath) {
+            alert('请先选择图片')
+            return
+        }
+        document.getElementById('result').innerText = '识别中，请稍候...'
+        try {
+            const result = await ipcRenderer.invoke('classify-image', currentImagePath)
+            document.getElementById('result').innerText = `识别结果：${result}`
+        } catch (err) {
+            document.getElementById('result').innerText = `识别失败：${err}`
+        }
+    })
+</script>
+
+</body>
+</html>
+
