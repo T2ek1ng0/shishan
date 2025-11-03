@@ -18,7 +18,7 @@ npm install axios
 
 下载好electron之后，在app文件夹里打开终端，输入npm start就可以运行全ai0人工的前端小程序了。
 
-dataset来源:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
+dataset:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
 
 模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换了pytorch和resnet。
 
