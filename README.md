@@ -1,6 +1,10 @@
+### 训练鸟类分类模型
+
 load_dataset.py下载dataset，get_dataset.py解包dataset，resnet_train.py训练模型，model_eval.py评估模型。
 
 model_predict.py可以对单张照片输出预测结果(准确率几乎为0，笑嘻了，可能训练用的dataset不带亚洲鸟玩吧)
+
+### 运行屎山程序
 
 cd进入app
 
@@ -17,3 +21,9 @@ npm install axios
 dataset来源:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
 
 模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换了pytorch和resnet。
+
+### 如何把屎山打包成exe
+
+cd进入app，`npm install --save-dev electron-builder`
+
+以管理员身份运行powershell进入app，`npm run dist`
