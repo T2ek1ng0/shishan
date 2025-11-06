@@ -1,6 +1,6 @@
 {
-  "name": "bird_handbook",
-  "version": "1.0.0",
+  "name": "birdwatching_handbook",
+  "version": "2.0.0",
   "description": "A handbook for birdwatching",
   "main": "main.js",
   "scripts": {
@@ -22,12 +22,13 @@
     "node-fetch": "^3.3.2"
   },
   "build": {
-    "appId": "org.gaojiyingwen.birdhandbook",
+    "appId": "org.gaojiyingwen.birdwatchinghandbook",
     "directories": {
       "output": "dist"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "favicon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -36,10 +37,7 @@
     "buildDependenciesFromSource": false,
     "forceCodeSigning": false,
     "extraResources": [
-      { "from": "venv", "to": "venv" },
-      { "from": "model_predict.py", "to": "." },
-      { "from": "model_resnet50", "to": "model_resnet50" },
-      { "from": "class_to_label.json", "to": "." },
+      { "from": "dist/model_predict", "to": "model_predict" },
       { "from": "records.json", "to": "." }
     ]
 

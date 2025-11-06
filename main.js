@@ -1,9 +1,9 @@
 const {app, BrowserWindow, ipcMain, Menu, dialog} = require('electron')
-const { spawn } = require('child_process')
+const { spawn } = require('child_process');
 const path = require('path')
 const fs = require('fs')
 const axios = require('axios')
-const RECORDS_FILE = path.join(__dirname, 'records.json')
+const RECORDS_FILE = app.isPackaged?path.join(process.resourcesPath, 'records.json'):path.join(__dirname, 'records.json')
 if (!fs.existsSync(RECORDS_FILE)) {
     fs.writeFileSync(RECORDS_FILE, JSON.stringify([]), 'utf-8')
 }
@@ -48,7 +48,52 @@ function createWindow(){
     mainWindow.on('ready-to-show', ()=> mainWindow.show())
     mainWindow.on('close', ()=> mainWindow = null)
 }
-app.whenReady().then(createWindow)
+let pythonProcess
+let isPythonReady = false
+// 缓存回调，等待每次 stdout 返回
+let stdoutBuffer = ''
+let pendingResolve = null
+app.whenReady().then(()=>{
+    createWindow()
+    const exePath = app.isPackaged
+        ? path.join(process.resourcesPath, 'model_predict', 'model_predict.exe') // 打包后的路径
+        : path.join(__dirname, 'dist', 'model_predict', 'model_predict.exe') // 开发时的路径
+    console.log('Python exe path:', exePath);
+    pythonProcess = spawn(exePath, [], { stdio: ['pipe', 'pipe', 'pipe'] })
+
+    pythonProcess.stderr.on('data', (data) => {
+        console.error('Python error:', data.toString());
+    });
+
+    pythonProcess.stdout.on('data', (data) => {
+        stdoutBuffer += data.toString();
+
+        // 关键：打开开发者工具看这个日志
+        console.log("Python STDOUT raw:", data.toString());
+
+        // 循环处理 buffer 中所有完整的行
+        while (stdoutBuffer.includes('\n')) {
+            const newlineIndex = stdoutBuffer.indexOf('\n');
+            const line = stdoutBuffer.substring(0, newlineIndex).trim();
+            stdoutBuffer = stdoutBuffer.substring(newlineIndex + 1);
+
+            if (line === 'MODEL_READY') {
+                console.log("Python Model is READY.");
+                isPythonReady = true;
+            }
+            else if (pendingResolve && line) {
+                // 确保 line 不是空字符串
+                console.log("Resolving classification with:", line)
+                pendingResolve(line);
+                pendingResolve = null;
+            }
+            else if (line) {
+                console.log("Python stdout (ignored):", line);
+            }
+            // 如果 line 是空的 (e.g., " \n"), 就忽略它
+        }
+    })
+})
 ipcMain.handle('select-image', async () => {
     const result = await dialog.showOpenDialog({
         title: '选择图片',
@@ -77,30 +122,14 @@ ipcMain.handle('open-image-selector', async () => {
 
 // 调用 Python 进行分类
 ipcMain.handle('classify-image', async (event, imagePath) => {
+    if (!isPythonReady) {
+        console.warn("Python model is not ready yet.");
+        dialog.showErrorBox("模型加载中", "图片识别引擎仍在加载中，请稍后再试。");
+        return null; // 或者 throw new Error(...)
+    }
     return new Promise((resolve, reject) => {
-        const isDev = !app.isPackaged;
-        let pythonExe, pythonScript
-        if (isDev) {
-            pythonExe = path.join(__dirname, 'venv', 'Scripts', 'python.exe')
-            pythonScript = path.join(__dirname, 'model_predict.py')
-            console.log('Python exe path:', pythonExe)
-            console.log('Python script path:', pythonScript)
-            console.log('Image path:', imagePath)
-        } else {
-            pythonExe = path.join(process.resourcesPath, 'venv', 'Scripts', 'python.exe')
-            pythonScript = path.join(process.resourcesPath, 'model_predict.py')
-        }
-
-        const pythonProcess = spawn(pythonExe, [pythonScript, imagePath], { shell: true })
-
-        let output = ''
-        pythonProcess.stdout.on('data', (data) => (output += data.toString()))
-        pythonProcess.stderr.on('data', (data) => console.error('Python error:', data.toString()))
-
-        pythonProcess.on('close', (code) => {
-            if (code === 0) resolve(output.trim())
-            else reject(`Python exited with code ${code}`)
-        })
+        pendingResolve = resolve;
+        pythonProcess.stdin.write(imagePath + '\n');
     })
 })
 
@@ -279,3 +308,25 @@ ipcMain.handle('delete_record', async (event, index) => {
     fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
     return true;
 })
+
+const cleanUp = () => {
+    if (pythonProcess && !pythonProcess.killed) {
+        pythonProcess.kill('SIGTERM')
+    }
+}
+
+// 当所有窗口都关闭时
+app.on('window-all-closed', () => {
+    cleanUp()
+    if (process.platform !== 'darwin') {
+        app.quit()
+    }
+})
+
+// 应用退出前
+app.on('before-quit', () => {
+    cleanUp()
+})
+
+// Node 进程本身退出时
+process.on('exit', cleanUp)
