@@ -24,7 +24,7 @@
   "build": {
     "appId": "org.gaojiyingwen.birdwatchinghandbook",
     "directories": {
-      "output": "dist"
+      "output": "build_output"
     },
     "win": {
       "target": "nsis",
