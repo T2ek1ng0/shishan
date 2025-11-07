@@ -23,6 +23,8 @@
   },
   "build": {
     "appId": "org.gaojiyingwen.birdwatchinghandbook",
+    "productName": "birdwatching_handbook",
+    "copyright": "Copyright © Powered by t2zk1ng0",
     "directories": {
       "output": "build_output"
     },
@@ -32,7 +34,9 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "warningsAsErrors": false,
+      "artifactName": "birdwatching_handbook_Setup.exe"
     },
     "buildDependenciesFromSource": false,
     "forceCodeSigning": false,

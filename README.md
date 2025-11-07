@@ -1,5 +1,9 @@
 你记不记得是谁一把屎一把尿把你从一个3年前的ipynb带大，是谁半夜下雨天抱着无响应的exe冲进DevTools，是谁斥巨内存打包整个PyTorch和resnet50环境就为了让你在主进程spawn之后收到秒速响应的stdin/stdout分类结果！！
 
+### 安装程序
+
+双击运行birdwatching_handbook_Setup.exe。安装过程中进度条抽风是正常现象，请不用担心。
+
 ### 训练鸟类分类模型
 
 load_dataset.py下载dataset，get_dataset.py解包dataset，resnet_train.py训练模型，model_eval.py评估模型。
@@ -17,7 +21,6 @@ npm init -y
 #npm config set registry https://registry.npmmirror.com
 npm install electron --save-dev
 npm install axios
-npm install --save-dev electron-builder
 pip install pyinstaller
 ```
 
@@ -40,6 +43,21 @@ dataset:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classif
 模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换成了pytorch和resnet
 
 ### 如何把屎山打包成exe
+
+安装依赖
+
+```
+npm install --save-dev electron-builder
+# 下载winCodeSign
+https://github.com/electron-userland/electron-builder-binaries/releases/download/winCodeSign-2.6.0/winCodeSign-2.6.0.7z
+把下载好的压缩包内的文件拷贝进C:\Users\{你的用户名}\AppData\Local\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0里
+# 因nsis打包软件大小超过2G时会报错[File: failed creating mmap of "xxx.nsis.7z"]，故在此下载nsisbi
+https://sourceforge.net/projects/nsisbi/
+把下载好的压缩包内的文件拷贝进C:\Users\{你的用户名}\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1里
+# 下载nsis
+https://repo.huaweicloud.com/electron-builder-binaries/nsis-3.0.4.1/nsis-3.0.4.1.7z
+把压缩包内的elevate.exe拷贝进C:\Users\{你的用户名}\AppData\Local\electron-builder\Cache\nsis\nsis-3.0.4.1里
+```
 
 ```
 cd {你存放代码的文件夹}
