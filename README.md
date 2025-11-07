@@ -34,9 +34,9 @@ cd {你存放代码的文件夹}
 npm start
 ```
 
-dataset:https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
+dataset：https://hf-mirror.com/datasets/yashikota/birds-525-species-image-classification
 
-模型:https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换成了pytorch和resnet
+模型：https://www.kaggle.com/code/vencerlanz09/bird-classification-using-cnn-efficientnetb0  ，在gpt的助力下换成了pytorch和resnet
 
 ### 如何把屎山打包成exe
 
@@ -61,8 +61,4 @@ cd {你存放代码的文件夹}
 npm run dist
 ```
 
-* 可选：合并setup
-
-正如https://blog.csdn.net/qq_30795779/article/details/127428030  所说，“如果打包的包过大，这种打包方式除了一个exe外，还有个额外的.nsisbi文件”，而这个.nsisbi文件也是setup.exe所需要的。
-
-因此打开https://www.enigmaprotector.com/en/downloads.html  ，下载Enigma Virtual Box。在Input File填入setup.exe，左下角Files添加.nsisbi，右下角Files Options勾选Compression，点击Process。
+感谢：https://blog.csdn.net/qq_30795779/article/details/127428030
