@@ -1,5 +1,7 @@
 你记不记得是谁一把屎一把尿把你从一个3年前的ipynb带大，是谁半夜下雨天抱着无响应的exe冲进DevTools，是谁斥巨内存打包整个PyTorch和resnet50环境就为了让你在主进程spawn之后收到秒速响应的stdin/stdout分类结果！！
 
+特别感谢：Gemini-2.5pro，Chatgpt-5（排名分先后）
+
 ### 训练鸟类分类模型
 
 load_dataset.py下载dataset，get_dataset.py解包dataset，resnet_train.py训练模型，model_eval.py评估模型。
