@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['model_predict.py'],
+    ['src/backend/model_predict.py'],
     pathex=[],
     binaries=[],
-    datas=[('my_model.pth', '.'), ('class_to_label.json', '.')],
+    datas=[('models/my_model.pth', '.'), ('models/class_to_label.json', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

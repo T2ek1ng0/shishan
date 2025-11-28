@@ -20,7 +20,7 @@ with open(label_map_path, 'r', encoding='utf-8') as f:
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 num_classes = 525
-model = models.resnet50(pretrained=False)
+model = models.resnet50(weights=None)
 in_features = model.fc.in_features
 model.fc = torch.nn.Sequential(
     torch.nn.Linear(in_features, 256),
