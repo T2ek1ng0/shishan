@@ -5,15 +5,14 @@ from PIL import Image
 TARGET_SIZE = (224, 224)
 
 # 加载模型和标签
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
-
-label_map_path = resource_path('class_to_label.json')
-model_path = resource_path('my_model.pth')
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+    label_map_path = os.path.join(base_path, 'class_to_label.json')
+    model_path = os.path.join(base_path, 'my_model.pth')
+else:
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    label_map_path = os.path.join(base_path, '../../models/class_to_label.json')
+    model_path = os.path.join(base_path, '../../models/my_model.pth')
 
 with open(label_map_path, 'r', encoding='utf-8') as f:
     idx_to_label = json.load(f)

@@ -1,4 +1,5 @@
 async function bird_classify() {
+    const { ipcRenderer } = require('electron')
     const imagePath = await ipcRenderer.invoke('open-image-selector')
     if (!imagePath) return
 

@@ -3,7 +3,7 @@ const { spawn } = require('child_process');
 const path = require('path')
 const fs = require('fs')
 const axios = require('axios')
-const RECORDS_FILE = app.isPackaged?path.join(process.resourcesPath, 'records.json'):path.join(__dirname, 'records.json')
+const RECORDS_FILE = app.isPackaged?path.join(process.resourcesPath, 'records.json'):path.join(__dirname, '../../../data/records.json')
 if (!fs.existsSync(RECORDS_FILE)) {
     fs.writeFileSync(RECORDS_FILE, JSON.stringify([]), 'utf-8')
 }
@@ -44,7 +44,7 @@ function createWindow(){
     let menu = Menu.buildFromTemplate(menutemp)
     Menu.setApplicationMenu(menu)
     //mainWindow.webContents.openDevTools()
-    mainWindow.loadFile('index.html')
+    mainWindow.loadFile(path.join(__dirname, '../html/index.html'))
     mainWindow.on('ready-to-show', ()=> mainWindow.show())
     mainWindow.on('close', ()=> mainWindow = null)
 }
@@ -57,7 +57,7 @@ app.whenReady().then(()=>{
     createWindow()
     const exePath = app.isPackaged
         ? path.join(process.resourcesPath, 'model_predict', 'model_predict.exe') // 打包后的路径
-        : path.join(__dirname, 'dist', 'model_predict', 'model_predict.exe') // 开发时的路径
+        : path.join(__dirname, '../../../dist/model_predict/model_predict.exe') // 开发时的路径
     console.log('Python exe path:', exePath);
     pythonProcess = spawn(exePath, [], { stdio: ['pipe', 'pipe', 'pipe'] })
 
@@ -116,7 +116,7 @@ ipcMain.handle('open-image-selector', async () => {
         }
     })
     selectWin.setMenu(null)
-    selectWin.loadFile(path.join(__dirname, 'select_img.html'))
+    selectWin.loadFile(path.join(__dirname, '../html/select_img.html'))
 })
 
 
@@ -148,18 +148,18 @@ ipcMain.handle('search_bird_newpage', async()=>{
         }
     })
     bird_searchWin.setMenu(null)
-    bird_searchWin.loadFile("bird_select_page.html")
+    bird_searchWin.loadFile(path.join(__dirname, "../html/bird_select_page.html"))
     //bird_selectpageWin.webContents.openDevTools()
     bird_searchWin.on('ready-to-show',()=> bird_searchWin.show())
     bird_searchWin.on('close',()=> bird_searchWin = null)
 })
 
 ipcMain.handle('area_search', async()=>{
-    bird_searchWin.loadFile("area_search.html")
+    bird_searchWin.loadFile(path.join(__dirname, "../html/area_search.html"))
 })
 
 ipcMain.handle('name_search', async()=>{
-    bird_searchWin.loadFile("name_search.html")
+    bird_searchWin.loadFile(path.join(__dirname, "../html/name_search.html"))
 })
 
 ipcMain.handle('area_searcher', async(event, area)=>{
@@ -197,7 +197,7 @@ ipcMain.handle('todays_newpage', async()=>{
         }
     })
     recomWin.setMenu(null)
-    recomWin.loadFile("recommend.html")
+    recomWin.loadFile(path.join(__dirname, "../html/recommend.html"))
     recomWin.on('ready-to-show',()=> recomWin.show())
     recomWin.on('close', ()=> recomWin = null)
 })
@@ -257,7 +257,7 @@ ipcMain.handle('open_records', async()=>{
         }
     })
     recordsWin.setMenu(null)
-    recordsWin.loadFile('records.html')
+    recordsWin.loadFile(path.join(__dirname, '../html/records.html'))
     //recordsWin.webContents.openDevTools()
     recordsWin.on('ready-to-show', () => recordsWin.show())
     recordsWin.on('close', () => recordsWin = null)
@@ -295,7 +295,7 @@ ipcMain.handle('open_add_record_window', async () => {
         }
     })
     addRecordWin.setMenu(null)
-    addRecordWin.loadFile('add_record.html')
+    addRecordWin.loadFile(path.join(__dirname, '../html/add_record.html'))
     addRecordWin.on('ready-to-show', () => addRecordWin.show())
     addRecordWin.on('close', () => addRecordWin = null)
 })

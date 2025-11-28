@@ -2,7 +2,7 @@
   "name": "birdwatching_handbook",
   "version": "2.0.0",
   "description": "A handbook for birdwatching",
-  "main": "main.js",
+  "main": "src/frontend/js/main.js",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
@@ -43,7 +43,7 @@
     "forceCodeSigning": false,
     "extraResources": [
       { "from": "dist/model_predict", "to": "model_predict" },
-      { "from": "records.json", "to": "." }
+      { "from": "data/records.json", "to": "." }
     ]
 
   }
