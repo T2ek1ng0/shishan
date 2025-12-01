@@ -13,10 +13,11 @@ function createWindow(){
     mainWindow = new BrowserWindow({
         // x: 200,
         // y: 200,
-        width: 600,
-        height: 400,
+        width: 800,
+        height: 600,
         show: false,
         resizable: false,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
@@ -103,20 +104,26 @@ ipcMain.handle('select-image', async () => {
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
 })
+let selectImgWin
 ipcMain.handle('open-image-selector', async () => {
-    const selectWin = new BrowserWindow({
+    if (selectImgWin) {
+        selectImgWin.focus()
+        return
+    }
+    selectImgWin = new BrowserWindow({
         width: 500,
         height: 600,
         parent: mainWindow,
-        modal: true,
+        // modal: true,
         resizable: false,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
         }
     })
-    selectWin.setMenu(null)
-    selectWin.loadFile(path.join(__dirname, '../html/select_img.html'))
+    selectImgWin.setMenu(null)
+    selectImgWin.loadFile(path.join(__dirname, '../html/select_img.html'))
+    selectImgWin.on('closed', () => selectImgWin = null)
 })
 
 
@@ -135,11 +142,15 @@ ipcMain.handle('classify-image', async (event, imagePath) => {
 
 let bird_searchWin
 ipcMain.handle('search_bird_newpage', async()=>{
+    if (bird_searchWin) {
+        bird_searchWin.focus()
+        return
+    }
     bird_searchWin = new BrowserWindow({
         width: 500,
         height: 600,
         parent: mainWindow,
-        modal: true,
+        // modal: true,
         resizable: false,
         show: false,
         webPreferences: {
@@ -184,11 +195,15 @@ ipcMain.handle('name_searcher', async(event, name)=>{
 
 let recomWin
 ipcMain.handle('todays_newpage', async()=>{
+    if (recomWin) {
+        recomWin.focus()
+        return
+    }
     recomWin = new BrowserWindow({
         width: 500,
         height: 600,
         parent: mainWindow,
-        modal: true,
+        // modal: true,
         resizable: false,
         show: false,
         webPreferences: {
@@ -244,6 +259,10 @@ async function call_llm(promptText){
 
 let recordsWin
 ipcMain.handle('open_records', async()=>{
+    if (recordsWin) {
+        recordsWin.focus()
+        return
+    }
     recordsWin = new BrowserWindow({
         width: 1000,
         height: 800,
@@ -307,6 +326,49 @@ ipcMain.handle('delete_record', async (event, index) => {
     records.splice(index, 1)
     fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
     return true;
+})
+
+const MAP_RECORDS_FILE = app.isPackaged ? path.join(process.resourcesPath, 'map_records.json') : path.join(__dirname, '../../../data/map_records.json')
+if (!fs.existsSync(MAP_RECORDS_FILE)) {
+    fs.writeFileSync(MAP_RECORDS_FILE, JSON.stringify([]), 'utf-8')
+}
+
+let mapWin
+ipcMain.handle('open_map_window', async () => {
+    if (mapWin) {
+        mapWin.focus()
+        return
+    }
+    mapWin = new BrowserWindow({
+        width: 1000,
+        height: 800,
+        resizable: true,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+            webSecurity: false // 允许加载本地图片
+        }
+    })
+    mapWin.setMenu(null)
+    mapWin.loadFile(path.join(__dirname, '../html/map.html'))
+    mapWin.on('ready-to-show', () => mapWin.show())
+    mapWin.on('close', () => mapWin = null)
+})
+
+ipcMain.handle('get_map_records', async () => {
+    if (!fs.existsSync(MAP_RECORDS_FILE)) return []
+    return JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'))
+})
+
+ipcMain.handle('add_map_record', async (event, record) => {
+    let records = []
+    if (fs.existsSync(MAP_RECORDS_FILE)) {
+        records = JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'))
+    }
+    records.push(record)
+    fs.writeFileSync(MAP_RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8')
+    return true
 })
 
 const cleanUp = () => {

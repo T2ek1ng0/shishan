@@ -1,5 +1,5 @@
-const { ipcRenderer } = require('electron')
-window.ipcRenderer = ipcRenderer
+// const { ipcRenderer } = require('electron') // Removed: using global window.ipcRenderer
+// window.ipcRenderer = ipcRenderer // Removed: already set in index.html
 async function search_bird(){
     await ipcRenderer.invoke('search_bird_newpage')
 }
