@@ -63,13 +63,14 @@
     tbody.innerHTML = ''
     data.forEach((r, idx) => {
       const tr = document.createElement('tr')
+      const idAttr = r.id ? `data-id="${r.id}"` : '';
       tr.innerHTML = `
             <td>${r.time}</td>
             <td>${r.location}</td>
             <td>${r.count}</td>
             <td>${r.species}</td>
             <td>${r.gender}</td>
-            <td><button class="delBtn" data-index="${idx}">删除</button></td>
+            <td><button class="delBtn" data-index="${idx}" ${idAttr}>删除</button></td>
         `
       tbody.appendChild(tr)
     })
@@ -78,8 +79,9 @@
     document.querySelectorAll('.delBtn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const index = parseInt(btn.dataset.index)
+        const id = btn.dataset.id
         if(confirm('确定要删除这条记录吗？')) {
-            await ipcRenderer.invoke('delete_record', index)
+            await ipcRenderer.invoke('delete_record', { index, id })
             loadRecords()  // 刷新表格
         }
       })

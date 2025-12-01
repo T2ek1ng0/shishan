@@ -181,6 +181,61 @@
         button { padding: 8px 15px; cursor: pointer; border-radius: 4px; border: none; }
         .btn-cancel { background: #e0e0e0; margin-right: 10px; }
         .btn-save { background: #3498db; color: white; }
+
+        /* Detail Modal */
+        #detail-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2100;
+            align-items: center;
+            justify-content: center;
+        }
+        .detail-content {
+            background: white;
+            padding: 0;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #eee;
+        }
+        .detail-info {
+            padding: 20px;
+        }
+        .detail-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .detail-desc {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .detail-meta {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 20px;
+        }
+        .detail-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -203,6 +258,7 @@
 <div id="map"></div>
 <button id="add-btn" onclick="startAddingMode()" title="添加记录">+</button>
 
+<!-- Add Record Modal -->
 <div id="modal">
     <div class="modal-content">
         <h3>添加观鸟记录</h3>
@@ -223,6 +279,22 @@
         <div class="btn-group">
             <button class="btn-cancel" onclick="closeModal()">取消</button>
             <button class="btn-save" onclick="saveRecord()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- Detail View Modal -->
+<div id="detail-modal">
+    <div class="detail-content">
+        <img id="detail-img" class="detail-img" src="">
+        <div class="detail-info">
+            <div id="detail-title" class="detail-title"></div>
+            <div id="detail-meta" class="detail-meta"></div>
+            <div id="detail-desc" class="detail-desc"></div>
+            <div class="detail-actions">
+                <button class="btn-cancel" onclick="closeDetailModal()">关闭</button>
+                <button class="btn-save" onclick="locateRecord()">📍 在地图上查看</button>
+            </div>
         </div>
     </div>
 </div>
@@ -294,12 +366,7 @@
             const card = document.createElement('div');
             card.className = 'record-card';
             card.onclick = () => {
-                hideRecordsList();
-                map.setView([record.lat, record.lng], 10);
-                // Find marker and open popup
-                // Since we clear markers on render, we might need to find the right one.
-                // But renderMarkers is called with allRecords usually.
-                // Let's just re-center for now.
+                showDetailModal(record);
             };
             
             const imgHtml = record.image ? `<img src="${record.image}">` : '<div style="width:80px;height:80px;background:#eee;border-radius:4px;"></div>';
@@ -312,6 +379,49 @@
                 </div>
             `;
             container.appendChild(card);
+        });
+    }
+
+    // Detail Modal Logic
+    let currentDetailRecord = null;
+
+    function showDetailModal(record) {
+        currentDetailRecord = record;
+        document.getElementById('detail-title').innerText = record.title;
+        document.getElementById('detail-desc').innerText = record.desc || '暂无描述';
+        
+        const img = document.getElementById('detail-img');
+        if (record.image) {
+            img.src = record.image;
+            img.style.display = 'block';
+        } else {
+            img.style.display = 'none';
+        }
+        
+        // Format date if id is timestamp
+        const date = new Date(record.id);
+        document.getElementById('detail-meta').innerText = `记录时间: ${date.toLocaleString()} | 坐标: ${record.lat.toFixed(4)}, ${record.lng.toFixed(4)}`;
+
+        document.getElementById('detail-modal').style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+        document.getElementById('detail-modal').style.display = 'none';
+        currentDetailRecord = null;
+    }
+
+    function locateRecord() {
+        if (!currentDetailRecord) return;
+        closeDetailModal();
+        hideRecordsList();
+        map.setView([currentDetailRecord.lat, currentDetailRecord.lng], 15);
+        
+        // Open the popup for this marker
+        markers.forEach(marker => {
+            const mLatLng = marker.getLatLng();
+            if (mLatLng.lat === currentDetailRecord.lat && mLatLng.lng === currentDetailRecord.lng) {
+                marker.openPopup();
+            }
         });
     }
 
@@ -387,12 +497,17 @@
             image: img
         };
 
-        await ipcRenderer.invoke('add_map_record', record);
-        // addMarkerToMap(record); // This now updates allRecords and re-renders
-        // But wait, addMarkerToMap implementation above pushes to allRecords.
-        // So we should call it.
-        addMarkerToMap(record);
-        closeModal();
+        try {
+            await ipcRenderer.invoke('add_map_record', record);
+            // addMarkerToMap(record); // This now updates allRecords and re-renders
+            // But wait, addMarkerToMap implementation above pushes to allRecords.
+            // So we should call it.
+            addMarkerToMap(record);
+            closeModal();
+        } catch (err) {
+            console.error(err);
+            alert('保存失败：' + err.message);
+        }
     }
 
     loadMapRecords();

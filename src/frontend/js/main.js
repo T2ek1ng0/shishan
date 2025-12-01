@@ -3,6 +3,16 @@ const { spawn } = require('child_process');
 const path = require('path')
 const fs = require('fs')
 const axios = require('axios')
+const { createClient } = require('@supabase/supabase-js')
+const { SUPABASE_URL, SUPABASE_KEY } = require('../../backend/supabase_config')
+
+// 初始化 Supabase 客户端
+// 如果用户没有配置 Key，这里可能会报错或者功能不可用，建议在真实应用中做好错误处理
+const supabase = (SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL') 
+    ? createClient(SUPABASE_URL, SUPABASE_KEY) 
+    : null;
+
+// 仍然保留本地文件路径作为备份或缓存（可选），但主要逻辑将切换到 Supabase
 const RECORDS_FILE = app.isPackaged?path.join(process.resourcesPath, 'records.json'):path.join(__dirname, '../../../data/records.json')
 if (!fs.existsSync(RECORDS_FILE)) {
     fs.writeFileSync(RECORDS_FILE, JSON.stringify([]), 'utf-8')
@@ -283,19 +293,52 @@ ipcMain.handle('open_records', async()=>{
 })
 
 ipcMain.handle('get_records', async () => {
-    if (!fs.existsSync(RECORDS_FILE)) return []
-    const data = fs.readFileSync(RECORDS_FILE, 'utf-8')
-    return JSON.parse(data)
+    if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return []
+
+        const { data, error } = await supabase
+            .from('records')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+        
+        if (error) {
+            console.error('Supabase get_records error:', error)
+            return []
+        }
+        return data
+    } else {
+        // Fallback to local file
+        if (!fs.existsSync(RECORDS_FILE)) return []
+        const data = fs.readFileSync(RECORDS_FILE, 'utf-8')
+        return JSON.parse(data)
+    }
 })
 
 ipcMain.handle('add_record', async (event, record) => {
-    let records = []
-    if (fs.existsSync(RECORDS_FILE)) {
-        records = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf-8'))
+    if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('User not logged in')
+
+        const { error } = await supabase
+            .from('records')
+            .insert([{ ...record, user_id: user.id }])
+        
+        if (error) {
+            console.error('Supabase add_record error:', error)
+            throw error
+        }
+        return true
+    } else {
+        let records = []
+        if (fs.existsSync(RECORDS_FILE)) {
+            records = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf-8'))
+        }
+        records.push(record)
+        fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8')
+        return true
     }
-    records.push(record)
-    fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8')
-    return true
 })
 
 let addRecordWin
@@ -319,13 +362,27 @@ ipcMain.handle('open_add_record_window', async () => {
     addRecordWin.on('close', () => addRecordWin = null)
 })
 
-ipcMain.handle('delete_record', async (event, index) => {
-    if (!fs.existsSync(RECORDS_FILE)) return false;
-    let records = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf-8'));
-    if (index < 0 || index >= records.length) return false;
-    records.splice(index, 1)
-    fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
-    return true;
+ipcMain.handle('delete_record', async (event, { index, id }) => {
+    if (supabase) {
+        if (!id) return false
+        const { error } = await supabase
+            .from('records')
+            .delete()
+            .eq('id', id)
+        
+        if (error) {
+            console.error('Supabase delete_record error:', error)
+            return false
+        }
+        return true
+    } else {
+        if (!fs.existsSync(RECORDS_FILE)) return false;
+        let records = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf-8'));
+        if (index < 0 || index >= records.length) return false;
+        records.splice(index, 1)
+        fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
+        return true;
+    }
 })
 
 const MAP_RECORDS_FILE = app.isPackaged ? path.join(process.resourcesPath, 'map_records.json') : path.join(__dirname, '../../../data/map_records.json')
@@ -357,18 +414,141 @@ ipcMain.handle('open_map_window', async () => {
 })
 
 ipcMain.handle('get_map_records', async () => {
-    if (!fs.existsSync(MAP_RECORDS_FILE)) return []
-    return JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'))
+    if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return []
+
+        const { data, error } = await supabase
+            .from('map_records')
+            .select('*')
+            .eq('user_id', user.id)
+        
+        if (error) {
+            console.error('Supabase get_map_records error:', error)
+            return []
+        }
+        return data
+    } else {
+        if (!fs.existsSync(MAP_RECORDS_FILE)) return []
+        return JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'))
+    }
 })
 
 ipcMain.handle('add_map_record', async (event, record) => {
-    let records = []
-    if (fs.existsSync(MAP_RECORDS_FILE)) {
-        records = JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'))
+    if (supabase) {
+        // 处理图片上传
+        let imageUrl = record.image;
+        if (record.image && fs.existsSync(record.image)) {
+            try {
+                const fileBuffer = fs.readFileSync(record.image);
+                const fileName = `map_images/${Date.now()}_${path.basename(record.image)}`;
+                
+                const { data, error: uploadError } = await supabase.storage
+                    .from('birds')
+                    .upload(fileName, fileBuffer, {
+                        contentType: 'image/jpeg' // 假设是 jpg，实际应根据扩展名判断
+                    });
+
+                if (uploadError) throw uploadError;
+
+                // 获取公开链接
+                const { data: { publicUrl } } = supabase.storage
+                    .from('birds')
+                    .getPublicUrl(fileName);
+                
+                imageUrl = publicUrl;
+            } catch (err) {
+                console.error('Image upload failed:', err);
+            }
+        }
+
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('User not logged in')
+
+        const newRecord = { ...record, image: imageUrl, user_id: user.id };
+        // 移除 id，让数据库自动生成，或者保留 id 如果数据库允许
+        // 通常 Supabase 会自动生成 id，但这里我们保留前端生成的 id 作为 timestamp 也可以，
+        // 只要数据库 id 字段不是自增主键冲突即可。建议让数据库生成 id。
+        delete newRecord.id; 
+
+        const { error } = await supabase
+            .from('map_records')
+            .insert([newRecord])
+        
+        if (error) {
+            console.error('Supabase add_map_record error:', error)
+            throw error
+        }
+        return true
+    } else {
+        let records = []
+        if (fs.existsSync(MAP_RECORDS_FILE)) {
+            records = JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'))
+        }
+        records.push(record)
+        fs.writeFileSync(MAP_RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8')
+        return true
     }
-    records.push(record)
-    fs.writeFileSync(MAP_RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8')
-    return true
+})
+
+// Auth Handlers
+let loginWin
+ipcMain.handle('open_login_window', async () => {
+    if (loginWin) {
+        loginWin.focus()
+        return
+    }
+    loginWin = new BrowserWindow({
+        width: 500,
+        height: 600,
+        resizable: false,
+        show: false,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false,
+        }
+    })
+    loginWin.setMenu(null)
+    loginWin.loadFile(path.join(__dirname, '../html/login.html'))
+    loginWin.on('ready-to-show', () => loginWin.show())
+    loginWin.on('close', () => loginWin = null)
+})
+
+ipcMain.handle('auth-login', async (event, { email, password }) => {
+    if (!supabase) return { success: false, error: 'Supabase not configured' }
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+    })
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, user: data.user }
+})
+
+ipcMain.handle('auth-register', async (event, { email, password }) => {
+    if (!supabase) return { success: false, error: 'Supabase not configured' }
+    
+    const { data, error } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+    })
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, user: data.user }
+})
+
+ipcMain.handle('auth-logout', async () => {
+    if (!supabase) return { success: false }
+    const { error } = await supabase.auth.signOut()
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+})
+
+ipcMain.handle('get-current-user', async () => {
+    if (!supabase) return null
+    const { data: { session } } = await supabase.auth.getSession()
+    return session ? session.user : null
 })
 
 const cleanUp = () => {

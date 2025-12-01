@@ -64,8 +64,13 @@
             species: document.getElementById('species').value,
             gender: document.getElementById('gender').value
         }
-        await ipcRenderer.invoke('add_record', newRecord)
-        window.close() // 关闭弹窗
+        try {
+            await ipcRenderer.invoke('add_record', newRecord)
+            window.close() // 关闭弹窗
+        } catch (err) {
+            console.error(err);
+            alert('添加失败：' + err.message);
+        }
     })
 </script>
 </body>

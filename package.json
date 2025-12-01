@@ -18,6 +18,7 @@
     "nodemon": "^3.1.10"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.13.1",
     "node-fetch": "^3.3.2"
   },
@@ -42,9 +43,14 @@
     "buildDependenciesFromSource": false,
     "forceCodeSigning": false,
     "extraResources": [
-      { "from": "dist/model_predict", "to": "model_predict" },
-      { "from": "data/records.json", "to": "." }
+      {
+        "from": "dist/model_predict",
+        "to": "model_predict"
+      },
+      {
+        "from": "data/records.json",
+        "to": "."
+      }
     ]
-
   }
 }

@@ -22,6 +22,25 @@
       color: white; /* Override common h1 color */
     }
 
+    .user-panel {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        color: white;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .user-panel button {
+        background: rgba(255,255,255,0.2);
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+    .user-panel button:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
     #main-container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -66,6 +85,11 @@
 </head>
 
 <body>
+  <div class="user-panel">
+      <span id="user-email">未登录</span>
+      <button id="login-btn" onclick="openLogin()">登录/注册</button>
+      <button id="logout-btn" onclick="handleLogout()" style="display: none;">退出</button>
+  </div>
   <header>
     <h1>🐦 打鸟图鉴</h1>
   </header>
@@ -96,6 +120,32 @@
   <script>
     const { ipcRenderer } = require('electron');
     window.ipcRenderer = ipcRenderer;
+
+    async function checkUser() {
+        const user = await ipcRenderer.invoke('get-current-user');
+        if (user) {
+            document.getElementById('user-email').innerText = user.email;
+            document.getElementById('login-btn').style.display = 'none';
+            document.getElementById('logout-btn').style.display = 'inline-block';
+        } else {
+            document.getElementById('user-email').innerText = '未登录';
+            document.getElementById('login-btn').style.display = 'inline-block';
+            document.getElementById('logout-btn').style.display = 'none';
+        }
+    }
+
+    async function openLogin() {
+        await ipcRenderer.invoke('open_login_window');
+    }
+
+    async function handleLogout() {
+        await ipcRenderer.invoke('auth-logout');
+        checkUser();
+    }
+
+    // Check user on load and when window gets focus (e.g. after login window closes)
+    checkUser();
+    window.addEventListener('focus', checkUser);
   </script>
 <script src="../js/bird_classify.js"></script>
 <script src="../js/search_bird.js"></script>
