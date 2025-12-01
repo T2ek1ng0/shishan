@@ -7,9 +7,51 @@ const { createClient } = require('@supabase/supabase-js')
 const { SUPABASE_URL, SUPABASE_KEY } = require('../../backend/supabase_config')
 
 // 初始化 Supabase 客户端
-// 如果用户没有配置 Key，这里可能会报错或者功能不可用，建议在真实应用中做好错误处理
+// 自定义存储适配器，用于在 Electron 主进程中持久化 Session
+const storagePath = path.join(app.getPath('userData'), 'supabase-session.json')
+const customStorage = {
+    getItem: (key) => {
+        try {
+            if (!fs.existsSync(storagePath)) return null
+            const data = JSON.parse(fs.readFileSync(storagePath, 'utf-8'))
+            return data[key]
+        } catch (e) {
+            return null
+        }
+    },
+    setItem: (key, value) => {
+        try {
+            let data = {}
+            if (fs.existsSync(storagePath)) {
+                data = JSON.parse(fs.readFileSync(storagePath, 'utf-8'))
+            }
+            data[key] = value
+            fs.writeFileSync(storagePath, JSON.stringify(data), 'utf-8')
+        } catch (e) {
+            console.error('Error saving session:', e)
+        }
+    },
+    removeItem: (key) => {
+        try {
+            if (!fs.existsSync(storagePath)) return
+            let data = JSON.parse(fs.readFileSync(storagePath, 'utf-8'))
+            delete data[key]
+            fs.writeFileSync(storagePath, JSON.stringify(data), 'utf-8')
+        } catch (e) {
+            console.error('Error removing session:', e)
+        }
+    }
+}
+
 const supabase = (SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL') 
-    ? createClient(SUPABASE_URL, SUPABASE_KEY) 
+    ? createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: {
+            storage: customStorage,
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: false
+        }
+    }) 
     : null;
 
 // 仍然保留本地文件路径作为备份或缓存（可选），但主要逻辑将切换到 Supabase
@@ -33,25 +75,7 @@ function createWindow(){
             contextIsolation: false
         }
     })
-    let menutemp = [
-        {
-            label: '关于',
-            submenu: [
-                {
-                    label:'关于我',
-                    click(){
-                        dialog.showMessageBox(mainWindow, {
-                            type: 'info',
-                            title: '关于我',
-                            message: '在所有人眼中，稿子件都是地球之主。',
-                            buttons: ['确定'],
-                            noLink: true,
-                        })
-                    }
-                },
-            ]
-        },
-    ]
+    let menutemp = []
     let menu = Menu.buildFromTemplate(menutemp)
     Menu.setApplicationMenu(menu)
     //mainWindow.webContents.openDevTools()
@@ -292,6 +316,24 @@ ipcMain.handle('open_records', async()=>{
     recordsWin.on('close', () => recordsWin = null)
 })
 
+// Helper for Supabase retries
+async function supabaseWithRetry(operation, maxRetries = 3) {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const result = await operation();
+            if (!result.error) return result;
+            lastError = result.error;
+            console.warn(`Supabase operation failed (attempt ${i + 1}/${maxRetries}):`, lastError.message);
+        } catch (err) {
+            lastError = err;
+            console.warn(`Supabase operation threw (attempt ${i + 1}/${maxRetries}):`, err.message);
+        }
+        if (i < maxRetries - 1) await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    return { data: null, error: lastError };
+}
+
 ipcMain.handle('get_records', async () => {
     if (supabase) {
         const { data: { user } } = await supabase.auth.getUser()
@@ -365,14 +407,13 @@ ipcMain.handle('open_add_record_window', async () => {
 ipcMain.handle('delete_record', async (event, { index, id }) => {
     if (supabase) {
         if (!id) return false
-        const { error } = await supabase
-            .from('records')
-            .delete()
-            .eq('id', id)
+        const { error } = await supabaseWithRetry(() => 
+            supabase.from('records').delete().eq('id', id)
+        )
         
         if (error) {
             console.error('Supabase delete_record error:', error)
-            return false
+            throw new Error(error.message || 'Delete failed')
         }
         return true
     } else {
@@ -488,6 +529,74 @@ ipcMain.handle('add_map_record', async (event, record) => {
         records.push(record)
         fs.writeFileSync(MAP_RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8')
         return true
+    }
+})
+
+ipcMain.handle('update_record', async (event, { id, index, record }) => {
+    if (supabase) {
+        if (!id) return false
+        const { error } = await supabase
+            .from('records')
+            .update(record)
+            .eq('id', id)
+        
+        if (error) {
+            console.error('Supabase update_record error:', error)
+            throw error
+        }
+        return true
+    } else {
+        if (!fs.existsSync(RECORDS_FILE)) return false;
+        let records = JSON.parse(fs.readFileSync(RECORDS_FILE, 'utf-8'));
+        if (index < 0 || index >= records.length) return false;
+        records[index] = { ...records[index], ...record };
+        fs.writeFileSync(RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
+        return true;
+    }
+})
+
+ipcMain.handle('delete_map_record', async (event, { id, index }) => {
+    if (supabase) {
+        if (!id) return false
+        const { error } = await supabaseWithRetry(() => 
+            supabase.from('map_records').delete().eq('id', id)
+        )
+        
+        if (error) {
+            console.error('Supabase delete_map_record error:', error)
+            throw new Error(error.message || 'Delete failed')
+        }
+        return true
+    } else {
+        if (!fs.existsSync(MAP_RECORDS_FILE)) return false;
+        let records = JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'));
+        if (index < 0 || index >= records.length) return false;
+        records.splice(index, 1)
+        fs.writeFileSync(MAP_RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
+        return true;
+    }
+})
+
+ipcMain.handle('update_map_record', async (event, { id, index, record }) => {
+    if (supabase) {
+        if (!id) return false
+        const { error } = await supabase
+            .from('map_records')
+            .update(record)
+            .eq('id', id)
+        
+        if (error) {
+            console.error('Supabase update_map_record error:', error)
+            throw error
+        }
+        return true
+    } else {
+        if (!fs.existsSync(MAP_RECORDS_FILE)) return false;
+        let records = JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'));
+        if (index < 0 || index >= records.length) return false;
+        records[index] = { ...records[index], ...record };
+        fs.writeFileSync(MAP_RECORDS_FILE, JSON.stringify(records, null, 2), 'utf-8');
+        return true;
     }
 })
 

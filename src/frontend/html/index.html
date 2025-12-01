@@ -115,11 +115,19 @@
       <div class="card-icon">🗺️</div>
       <div class="card-title">观鸟地图</div>
     </div>
+    <div class="card" onclick="showAbout()">
+      <div class="card-icon">ℹ️</div>
+      <div class="card-title">关于软件</div>
+    </div>
   </div>
 
   <script>
     const { ipcRenderer } = require('electron');
     window.ipcRenderer = ipcRenderer;
+
+    function showAbout() {
+        alert('🐦 打鸟图鉴 v1.0\n\n这是一个专为观鸟爱好者设计的应用，提供智能识别、记录管理和观鸟地图等功能。\n\n开发者：T2ek1ng0');
+    }
 
     async function checkUser() {
         const user = await ipcRenderer.invoke('get-current-user');

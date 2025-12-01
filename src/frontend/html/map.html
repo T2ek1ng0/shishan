@@ -71,7 +71,7 @@
         #list-btn {
             position: absolute;
             top: 20px;
-            left: 20px;
+            right: 20px;
             z-index: 1000;
             background: white;
             padding: 10px 15px;
@@ -117,9 +117,9 @@
         #list-content {
             flex: 1;
             overflow-y: auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             padding: 10px;
         }
         
@@ -128,33 +128,54 @@
             border-radius: 8px;
             padding: 10px;
             display: flex;
-            gap: 10px;
+            gap: 15px;
             cursor: pointer;
             transition: box-shadow 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+            align-items: center;
+            background: white;
         }
         .record-card:hover {
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background: #f9f9f9;
         }
         .record-card img {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             object-fit: cover;
             border-radius: 4px;
+            flex-shrink: 0;
         }
         .record-card-info {
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         .record-card-title {
             font-weight: bold;
-            margin-bottom: 5px;
+            font-size: 16px;
+            margin-bottom: 4px;
         }
         .record-card-desc {
-            font-size: 12px;
+            font-size: 13px;
             color: #666;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
+            white-space: nowrap;
             overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .detail-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .detail-actions button {
+            flex: 1;
+            padding: 10px 0;
+            text-align: center;
         }
 
         /* 简单的模态框样式 */
@@ -292,19 +313,119 @@
             <div id="detail-meta" class="detail-meta"></div>
             <div id="detail-desc" class="detail-desc"></div>
             <div class="detail-actions">
+                <button class="btn-save" onclick="locateRecord()">在地图上查看</button>
+                <button class="btn-cancel" onclick="editMapRecord()" style="background:#f39c12;color:white;">编辑</button>
                 <button class="btn-cancel" onclick="closeDetailModal()">关闭</button>
-                <button class="btn-save" onclick="locateRecord()">📍 在地图上查看</button>
+                <button class="btn-cancel" onclick="deleteMapRecord()" style="background:#e74c3c;color:white;">删除</button>
             </div>
         </div>
     </div>
 </div>
 
+<script>
+    // ... existing code ...
+    
+    async function deleteMapRecord() {
+        if (!currentDetailRecord) return;
+        if (!confirm('确定要删除这条记录吗？')) return;
+        
+        try {
+            // Find index in allRecords
+            const index = allRecords.findIndex(r => r.id === currentDetailRecord.id);
+            await ipcRenderer.invoke('delete_map_record', { 
+                id: currentDetailRecord.id, 
+                index: index 
+            });
+            
+            closeDetailModal();
+            loadMapRecords(); // Reload all
+        } catch (e) {
+            alert('删除失败: ' + e.message);
+        }
+    }
+
+    function editMapRecord() {
+        if (!currentDetailRecord) return;
+        closeDetailModal();
+        
+        // Reuse the add modal for editing
+        // We need to store the editing ID
+        document.getElementById('modal').dataset.editId = currentDetailRecord.id;
+        document.getElementById('modal').dataset.editIndex = allRecords.findIndex(r => r.id === currentDetailRecord.id);
+        
+        document.getElementById('record-title').value = currentDetailRecord.title;
+        document.getElementById('record-desc').value = currentDetailRecord.desc || '';
+        document.getElementById('record-img').value = currentDetailRecord.image || '';
+        
+        // We can't easily change lat/lng in this simple modal without clicking map
+        // So we assume location is fixed for now, or we could let them click map to update
+        // For simplicity, let's keep location same unless they click map?
+        // Actually, the add modal relies on `currentLatLng`.
+        currentLatLng = { lat: currentDetailRecord.lat, lng: currentDetailRecord.lng };
+        
+        document.getElementById('modal').style.display = 'flex';
+    }
+    
+    // Override saveRecord to handle edit
+    const originalSaveRecord = saveRecord;
+    saveRecord = async function() {
+        const editId = document.getElementById('modal').dataset.editId;
+        if (!editId) {
+            return originalSaveRecord();
+        }
+        
+        // Edit mode
+        const title = document.getElementById('record-title').value;
+        const desc = document.getElementById('record-desc').value;
+        const img = document.getElementById('record-img').value;
+
+        if (!title) {
+            alert('请输入标题');
+            return;
+        }
+
+        const record = {
+            lat: currentLatLng.lat,
+            lng: currentLatLng.lng,
+            title: title,
+            desc: desc,
+            image: img
+        };
+
+        try {
+            await ipcRenderer.invoke('update_map_record', {
+                id: editId,
+                index: parseInt(document.getElementById('modal').dataset.editIndex),
+                record: record
+            });
+            
+            closeModal();
+            loadMapRecords();
+            
+            // Clear edit state
+            delete document.getElementById('modal').dataset.editId;
+            delete document.getElementById('modal').dataset.editIndex;
+        } catch (err) {
+            console.error(err);
+            alert('更新失败：' + err.message);
+        }
+    }
+    
+    // Override closeModal to clear edit state
+    const originalCloseModal = closeModal;
+    closeModal = function() {
+        delete document.getElementById('modal').dataset.editId;
+        delete document.getElementById('modal').dataset.editIndex;
+        originalCloseModal();
+    }
+</script>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     const { ipcRenderer } = require('electron');
     
-    // 初始化地图 (默认显示中国大致中心)
-    const map = L.map('map').setView([35.8617, 104.1954], 4);
+    // 初始化地图 (默认显示广州)
+    const map = L.map('map').setView([23.1291, 113.2644], 11);
 
     // 使用 高德地图 瓦片图层 (无需Key，速度快)
     L.tileLayer('https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
@@ -329,6 +450,29 @@
         }
     }
 
+    // Define icons
+    const defaultIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
+    const selectedIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [35, 57], // Larger size
+        iconAnchor: [17, 57],
+        popupAnchor: [1, -50],
+        shadowSize: [57, 57]
+    });
+
+    let currentSelectedMarker = null;
+
     function renderMarkers(recordsToRender) {
         // Clear existing markers
         markers.forEach(marker => map.removeLayer(marker));
@@ -344,9 +488,40 @@
                     </div>
                 </div>
             `;
-            const marker = L.marker([record.lat, record.lng]).addTo(map).bindPopup(popupContent);
+            const marker = L.marker([record.lat, record.lng], { icon: defaultIcon }).addTo(map).bindPopup(popupContent);
+            
+            // Store record id on marker for easy lookup
+            marker.recordId = record.id;
+
+            // Click to select (enlarge)
+            marker.on('click', () => {
+                selectMarker(marker);
+            });
+
+            // Right click to show detail modal and select
+            marker.on('contextmenu', () => {
+                selectMarker(marker);
+                showDetailModal(record);
+            });
+
+            // Reset icon when popup closes
+            marker.on('popupclose', () => {
+                if (currentSelectedMarker === marker) {
+                    marker.setIcon(defaultIcon);
+                    currentSelectedMarker = null;
+                }
+            });
+
             markers.push(marker);
         });
+    }
+
+    function selectMarker(marker) {
+        if (currentSelectedMarker && currentSelectedMarker !== marker) {
+            currentSelectedMarker.setIcon(defaultIcon);
+        }
+        currentSelectedMarker = marker;
+        marker.setIcon(selectedIcon);
     }
 
     // List View Logic
@@ -369,7 +544,7 @@
                 showDetailModal(record);
             };
             
-            const imgHtml = record.image ? `<img src="${record.image}">` : '<div style="width:80px;height:80px;background:#eee;border-radius:4px;"></div>';
+            const imgHtml = record.image ? `<img src="${record.image}">` : '<div style="width:60px;height:60px;background:#eee;border-radius:4px;flex-shrink:0;"></div>';
             
             card.innerHTML = `
                 ${imgHtml}
@@ -412,15 +587,30 @@
 
     function locateRecord() {
         if (!currentDetailRecord) return;
+        
+        // 保存引用，因为 closeDetailModal 会清空 currentDetailRecord
+        const targetRecord = currentDetailRecord;
+        
         closeDetailModal();
         hideRecordsList();
-        map.setView([currentDetailRecord.lat, currentDetailRecord.lng], 15);
         
-        // Open the popup for this marker
+        // Center the map
+        map.setView([targetRecord.lat, targetRecord.lng], 15);
+        
+        // Find and select the marker
         markers.forEach(marker => {
-            const mLatLng = marker.getLatLng();
-            if (mLatLng.lat === currentDetailRecord.lat && mLatLng.lng === currentDetailRecord.lng) {
+            // Use recordId if available, or fallback to coordinate matching
+            if (marker.recordId === targetRecord.id) {
+                selectMarker(marker);
                 marker.openPopup();
+            } else {
+                // Fallback for legacy records without id on marker (though we added it above)
+                const mLatLng = marker.getLatLng();
+                if (Math.abs(mLatLng.lat - targetRecord.lat) < 0.000001 && 
+                    Math.abs(mLatLng.lng - targetRecord.lng) < 0.000001) {
+                    selectMarker(marker);
+                    marker.openPopup();
+                }
             }
         });
     }
