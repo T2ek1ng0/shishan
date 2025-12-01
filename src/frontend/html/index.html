@@ -3,26 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>打鸟图鉴</title>
+  <link rel="stylesheet" href="../css/common.css">
   <style>
-    :root {
-      --primary-color: #2c3e50;
-      --accent-color: #3498db;
-      --bg-color: #ecf0f1;
-      --text-color: #333;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-
     header {
       background-color: var(--primary-color);
       color: white;
@@ -37,6 +19,7 @@
       margin: 0;
       font-weight: 300;
       letter-spacing: 2px;
+      color: white; /* Override common h1 color */
     }
 
     #main-container {
@@ -79,11 +62,6 @@
       font-weight: 600;
       color: var(--primary-color);
     }
-
-    /* 隐藏旧的预览区域，如果不再需要可以直接删除 */
-    #preview_area {
-      display: none; 
-    }
   </style>
 </head>
 
@@ -91,11 +69,6 @@
   <header>
     <h1>🐦 打鸟图鉴</h1>
   </header>
-
-  <div id="preview_area">
-    <img id="preview" style="display:none;" />
-    <p id="result"></p>
-  </div>
 
   <div id="main-container">
     <div class="card" onclick="bird_classify()">

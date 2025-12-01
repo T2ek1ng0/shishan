@@ -13,10 +13,10 @@ function createWindow(){
     mainWindow = new BrowserWindow({
         // x: 200,
         // y: 200,
-        width: 800,
-        height: 600,
+        width: 1200,
+        height: 900,
         show: false,
-        resizable: false,
+        resizable: true,
         icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
@@ -115,7 +115,7 @@ ipcMain.handle('open-image-selector', async () => {
         height: 600,
         parent: mainWindow,
         // modal: true,
-        resizable: false,
+        resizable: true,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -151,7 +151,7 @@ ipcMain.handle('search_bird_newpage', async()=>{
         height: 600,
         parent: mainWindow,
         // modal: true,
-        resizable: false,
+        resizable: true,
         show: false,
         webPreferences: {
             nodeIntegration: true,
@@ -204,7 +204,7 @@ ipcMain.handle('todays_newpage', async()=>{
         height: 600,
         parent: mainWindow,
         // modal: true,
-        resizable: false,
+        resizable: true,
         show: false,
         webPreferences: {
             nodeIntegration: true,
@@ -306,7 +306,7 @@ ipcMain.handle('open_add_record_window', async () => {
         height: 350,
         parent: recordsWin,
         modal: true,
-        resizable: false,
+        resizable: true,
         show: false,
         webPreferences: {
             nodeIntegration: true,

@@ -3,55 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <title>今日推荐</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 40px;
-            background-color: #f0f0f0;
-            height: 100vh;
-        }
-
-        h2 {
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        #area_input {
-            width: 300px;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            margin-bottom: 15px;
-        }
-
-        button {
-            width: 150px;
-            padding: 10px;
-            font-size: 16px;
-            border-radius: 6px;
-            border: none;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-bottom: 20px;
-        }
-
-        button:hover {
-            background-color: #45a049;
-        }
-    </style>
+    <link rel="stylesheet" href="../css/common.css">
 </head>
 <body>
-    <h2>请输入你所在的地区</h2>
-    <input id="area_input" type="text" placeholder="请输入你所在的地区">
-    <button onclick="recommender()">确定</button>
-    <div id="result"></div>
+    <div class="container">
+        
+        <h2>📅 今日打鸟推荐</h2>
+        <div class="form-group">
+            <input id="area_input" type="text" placeholder="请输入你所在的地区（如：杭州西湖）">
+        </div>
+        <div class="text-center">
+            <button onclick="recommender()">✨ 获取推荐</button>
+        </div>
+        
+        <div id="result" class="mt-20" style="white-space: pre-wrap; line-height: 1.6; background: #f9f9f9; padding: 15px; border-radius: 5px; min-height: 100px;"></div>
+    </div>
+
     <script>
         const { ipcRenderer } = require('electron')
         window.ipcRenderer = ipcRenderer
@@ -62,10 +29,10 @@
                 resultElement.innerText = "请输入你所在的地区"
                 return
             }
-            resultElement.innerText = "llm正在思考中，请稍候..."
+            resultElement.innerText = "正在为您生成推荐，请稍候..."
             try {
                 const result = await ipcRenderer.invoke('todays_recommend', area)
-                resultElement.innerText = `llm云：${result}`
+                resultElement.innerText = result
             } catch (err) {
                 resultElement.innerText = `调用出错：${err}`
             }

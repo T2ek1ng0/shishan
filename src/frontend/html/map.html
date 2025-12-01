@@ -4,9 +4,19 @@
     <meta charset="UTF-8">
     <title>观鸟地图</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="../css/common.css">
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; }
-        #map { height: 100%; width: 100%; background-color: #f0f0f0; }
+        /* Override common.css for full screen map */
+        body {
+            padding: 0 !important;
+            display: block !important;
+            margin: 0 !important;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+        
+        #map { height: 100%; width: 100%; background-color: #f0f0f0; z-index: 1; }
         
         .custom-popup .leaflet-popup-content-wrapper {
             border-radius: 8px;
@@ -57,6 +67,96 @@
         }
         #add-btn:hover { background: #2980b9; }
 
+        /* Records List Button */
+        #list-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-weight: bold;
+            color: #2c3e50;
+            border: none;
+        }
+        #list-btn:hover { background: #f9f9f9; }
+
+        /* Records List Overlay */
+        #records-list-container {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 1500;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .list-search-bar {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        #list-content {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 10px;
+        }
+        
+        .record-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+        }
+        .record-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .record-card img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .record-card-info {
+            flex: 1;
+        }
+        .record-card-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .record-card-desc {
+            font-size: 12px;
+            color: #666;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
         /* 简单的模态框样式 */
         #modal {
             display: none;
@@ -84,6 +184,21 @@
     </style>
 </head>
 <body>
+
+<button id="list-btn" onclick="showRecordsList()">📋 记录列表</button>
+
+<div id="records-list-container">
+    <div class="list-header">
+        <button onclick="hideRecordsList()" style="background:transparent; color:#333; font-size:24px; padding:0;">←</button>
+        <div class="list-search-bar">
+            <input type="text" id="list-search-input" placeholder="搜索记录..." oninput="filterList()">
+        </div>
+        <div style="width: 24px;"></div> <!-- Spacer for centering -->
+    </div>
+    <div id="list-content">
+        <!-- Records will be injected here -->
+    </div>
+</div>
 
 <div id="map"></div>
 <button id="add-btn" onclick="startAddingMode()" title="添加记录">+</button>
@@ -126,30 +241,98 @@
 
     let isAdding = false;
     let currentLatLng = null;
+    let allRecords = [];
+    let markers = [];
 
     // 加载已有记录
     async function loadMapRecords() {
         try {
             const records = await ipcRenderer.invoke('get_map_records');
             if (Array.isArray(records)) {
-                records.forEach(addMarkerToMap);
+                allRecords = records;
+                renderMarkers(allRecords);
             }
         } catch (e) {
             console.error("Failed to load records:", e);
         }
     }
 
-    function addMarkerToMap(record) {
-        const popupContent = `
-            <div class="custom-popup">
-                ${record.image ? `<img src="${record.image}" class="popup-img">` : ''}
-                <div class="popup-info">
-                    <div class="popup-title">${record.title}</div>
-                    <div class="popup-desc">${record.desc || '无描述'}</div>
+    function renderMarkers(recordsToRender) {
+        // Clear existing markers
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        recordsToRender.forEach(record => {
+            const popupContent = `
+                <div class="custom-popup">
+                    ${record.image ? `<img src="${record.image}" class="popup-img">` : ''}
+                    <div class="popup-info">
+                        <div class="popup-title">${record.title}</div>
+                        <div class="popup-desc">${record.desc || '无描述'}</div>
+                    </div>
                 </div>
-            </div>
-        `;
-        L.marker([record.lat, record.lng]).addTo(map).bindPopup(popupContent);
+            `;
+            const marker = L.marker([record.lat, record.lng]).addTo(map).bindPopup(popupContent);
+            markers.push(marker);
+        });
+    }
+
+    // List View Logic
+    function showRecordsList() {
+        document.getElementById('records-list-container').style.display = 'flex';
+        renderList(allRecords);
+    }
+
+    function hideRecordsList() {
+        document.getElementById('records-list-container').style.display = 'none';
+    }
+
+    function renderList(records) {
+        const container = document.getElementById('list-content');
+        container.innerHTML = '';
+        records.forEach(record => {
+            const card = document.createElement('div');
+            card.className = 'record-card';
+            card.onclick = () => {
+                hideRecordsList();
+                map.setView([record.lat, record.lng], 10);
+                // Find marker and open popup
+                // Since we clear markers on render, we might need to find the right one.
+                // But renderMarkers is called with allRecords usually.
+                // Let's just re-center for now.
+            };
+            
+            const imgHtml = record.image ? `<img src="${record.image}">` : '<div style="width:80px;height:80px;background:#eee;border-radius:4px;"></div>';
+            
+            card.innerHTML = `
+                ${imgHtml}
+                <div class="record-card-info">
+                    <div class="record-card-title">${record.title}</div>
+                    <div class="record-card-desc">${record.desc || '无描述'}</div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function filterList() {
+        const query = document.getElementById('list-search-input').value.trim().toLowerCase();
+        if (!query) {
+            renderList(allRecords);
+            return;
+        }
+        const filtered = allRecords.filter(r => 
+            (r.title && r.title.toLowerCase().includes(query)) || 
+            (r.desc && r.desc.toLowerCase().includes(query))
+        );
+        renderList(filtered);
+    }
+
+    function addMarkerToMap(record) {
+        // Helper to add single marker (used after saving)
+        // But we should probably just re-render or add to list
+        allRecords.push(record);
+        renderMarkers(allRecords);
     }
 
     function startAddingMode() {
@@ -205,6 +388,9 @@
         };
 
         await ipcRenderer.invoke('add_map_record', record);
+        // addMarkerToMap(record); // This now updates allRecords and re-renders
+        // But wait, addMarkerToMap implementation above pushes to allRecords.
+        // So we should call it.
         addMarkerToMap(record);
         closeModal();
     }

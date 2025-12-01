@@ -3,55 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <title>按地区检索</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 30px;
-            background-color: #f5f5f5;
-            height: 100vh;
-        }
-
-        h3 {
-            margin-bottom: 20px;
-        }
-
-        #area_input {
-            width: 300px;
-            padding: 10px;
-            font-size: 16px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            margin-bottom: 15px;
-        }
-
-        button {
-            width: 150px;
-            padding: 10px;
-            font-size: 16px;
-            border-radius: 6px;
-            border: none;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin-bottom: 20px;
-        }
-
-        button:hover {
-            background-color: #45a049;
-        }
-
-    </style>
+    <link rel="stylesheet" href="../css/common.css">
 </head>
 <body>
-    <h3>请输入要检索的地区</h3>
-    <input id="area_input" type="text" placeholder="请输入要检索的地区">
-    <button onclick="area_searcher()">搜索</button>
-    <div id="area_result"></div>
+    <div class="container">
+        <button class="back-btn" onclick="goBack()" title="返回">⬅</button>
+        
+        <h3>🌍 地区检索</h3>
+        <div class="form-group">
+            <input id="area_input" type="text" placeholder="请输入要检索的地区（如：北京奥林匹克森林公园）">
+        </div>
+        <div class="text-center">
+            <button onclick="area_searcher()">🔍 开始搜索</button>
+        </div>
+        
+        <div id="area_result" class="mt-20" style="white-space: pre-wrap; line-height: 1.6; background: #f9f9f9; padding: 15px; border-radius: 5px; min-height: 100px;"></div>
+    </div>
+
     <script>
          const { ipcRenderer } = require('electron')
          window.ipcRenderer = ipcRenderer
@@ -70,10 +38,14 @@
 
              try {
                  const result = await ipcRenderer.invoke('area_searcher', area)
-                 resultElement.innerText = `检索结果：${result}`
+                 resultElement.innerText = result
              } catch (err) {
                  resultElement.innerText = `调用出错：${err}`
              }
+         }
+
+         async function goBack() {
+             await ipcRenderer.invoke('search_bird_newpage')
          }
     </script>
 </body>

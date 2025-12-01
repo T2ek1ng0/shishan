@@ -3,36 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <title>我的观鸟记录</title>
+  <link rel="stylesheet" href="../css/common.css">
   <style>
-    body { font-family: sans-serif; padding: 10px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #aaa; padding: 8px; text-align: left; cursor: pointer; }
-    tbody { display: block; max-height: 400px; overflow-y: auto; }
-    thead, tbody tr { display: table; width: 100%; table-layout: fixed; }
-    input { margin: 5px; }
-    #search { width: 200px; }
-    #addBtn { margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background-color: #f8f9fa; font-weight: 600; color: #2c3e50; cursor: pointer; user-select: none; }
+    th:hover { background-color: #e9ecef; }
+    tr:hover { background-color: #f1f1f1; }
+    tbody { display: table-row-group; }
+    thead { display: table-header-group; }
+    
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .search-box { flex: 1; max-width: 300px; margin-right: 20px; margin-bottom: 0; }
+    
+    .delBtn {
+        background-color: #e74c3c;
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+    .delBtn:hover { background-color: #c0392b; }
   </style>
 </head>
 <body>
-<h1>我的观鸟记录表</h1>
+    <div class="container" style="max-width: 100%;">
+        
+        <h1>📝 我的观鸟记录表</h1>
 
-<input id="search" placeholder="搜索...">
-<button onclick="add_records()">添加记录</button>
+        <div class="toolbar">
+            <input id="search" class="search-box" placeholder="🔍 搜索记录...">
+            <button onclick="add_records()">➕ 添加记录</button>
+        </div>
 
-<table>
-  <thead>
-  <tr>
-    <th data-field="time">观测时间</th>
-    <th data-field="location">地点</th>
-    <th data-field="count">数量</th>
-    <th data-field="species">种类</th>
-    <th data-field="gender">性别</th>
-    <th>操作</th>
-  </tr>
-  </thead>
-  <tbody id="records_body"></tbody>
-</table>
+        <table>
+          <thead>
+          <tr>
+            <th data-field="time">观测时间 ↕</th>
+            <th data-field="location">地点 ↕</th>
+            <th data-field="count">数量 ↕</th>
+            <th data-field="species">种类 ↕</th>
+            <th data-field="gender">性别 ↕</th>
+            <th>操作</th>
+          </tr>
+          </thead>
+          <tbody id="records_body"></tbody>
+        </table>
+    </div>
 
 <script>
   const { ipcRenderer } = require('electron')
@@ -63,8 +78,10 @@
     document.querySelectorAll('.delBtn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const index = parseInt(btn.dataset.index)
-        await ipcRenderer.invoke('delete_record', index)
-        loadRecords()  // 刷新表格
+        if(confirm('确定要删除这条记录吗？')) {
+            await ipcRenderer.invoke('delete_record', index)
+            loadRecords()  // 刷新表格
+        }
       })
     })
   }
@@ -85,6 +102,7 @@
   document.querySelectorAll('th').forEach(th => {
     th.addEventListener('click', () => {
       const field = th.dataset.field
+      if(!field) return;
       const sorted = [...records].sort((a, b) => {
         if(a[field] < b[field]) return -1
         if(a[field] > b[field]) return 1
