@@ -1,4 +1,5 @@
 async function bird_classify() {
+    // const { ipcRenderer } = require('electron') // Removed: using global window.ipcRenderer
     const imagePath = await ipcRenderer.invoke('open-image-selector')
     if (!imagePath) return
 

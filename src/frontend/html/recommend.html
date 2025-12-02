@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>今日推荐</title>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+    <div class="container">
+        
+        <h2>📅 今日打鸟推荐</h2>
+        <div class="form-group">
+            <input id="area_input" type="text" placeholder="请输入你所在的地区（如：杭州西湖）">
+        </div>
+        <div class="text-center">
+            <button onclick="recommender()">✨ 获取推荐</button>
+        </div>
+        
+        <div id="result" class="mt-20" style="white-space: pre-wrap; line-height: 1.6; background: #f9f9f9; padding: 15px; border-radius: 5px; min-height: 100px;"></div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron')
+        window.ipcRenderer = ipcRenderer
+        async function recommender(){
+            const area = document.getElementById("area_input").value.trim()
+            const resultElement = document.getElementById("result")
+            if (!area) {
+                resultElement.innerText = "请输入你所在的地区"
+                return
+            }
+            resultElement.innerText = "正在为您生成推荐，请稍候..."
+            try {
+                const result = await ipcRenderer.invoke('todays_recommend', area)
+                resultElement.innerText = result
+            } catch (err) {
+                resultElement.innerText = `调用出错：${err}`
+            }
+        }
+    </script>
+</body>
+</html>

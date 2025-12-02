@@ -18,7 +18,7 @@ class_to_idx = dataset.class_to_idx
 idx_to_label = {str(idx): label for label, idx in class_to_idx.items()}
 
 # 输出 JSON 文件
-output_path = "class_to_label.json"
+output_path = "../models/class_to_label.json"
 with open(output_path, "w", encoding="utf-8") as f:
     json.dump(idx_to_label, f, ensure_ascii=False, indent=2)
 

@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>观鸟地图</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        /* Override common.css for full screen map */
+        body {
+            padding: 0 !important;
+            display: block !important;
+            margin: 0 !important;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+        
+        #map { height: 100%; width: 100%; background-color: #f0f0f0; z-index: 1; }
+        
+        .custom-popup .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            padding: 0;
+            overflow: hidden;
+        }
+        .custom-popup .leaflet-popup-content {
+            margin: 0;
+            width: 200px !important;
+        }
+        .popup-img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            display: block;
+        }
+        .popup-info {
+            padding: 10px;
+        }
+        .popup-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .popup-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        #add-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        #add-btn:hover { background: #2980b9; }
+
+        /* Records List Button */
+        #list-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-weight: bold;
+            color: #2c3e50;
+            border: none;
+        }
+        #list-btn:hover { background: #f9f9f9; }
+
+        /* Records List Overlay */
+        #records-list-container {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 1500;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .list-search-bar {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        #list-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        .record-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            gap: 15px;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+            align-items: center;
+            background: white;
+        }
+        .record-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background: #f9f9f9;
+        }
+        .record-card img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .record-card-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .record-card-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .record-card-desc {
+            font-size: 13px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .detail-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .detail-actions button {
+            flex: 1;
+            padding: 10px 0;
+            text-align: center;
+        }
+
+        /* 简单的模态框样式 */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
+        .btn-group { text-align: right; margin-top: 20px; }
+        button { padding: 8px 15px; cursor: pointer; border-radius: 4px; border: none; }
+        .btn-cancel { background: #e0e0e0; margin-right: 10px; }
+        .btn-save { background: #3498db; color: white; }
+
+        /* Detail Modal */
+        #detail-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2100;
+            align-items: center;
+            justify-content: center;
+        }
+        .detail-content {
+            background: white;
+            padding: 0;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #eee;
+        }
+        .detail-info {
+            padding: 20px;
+        }
+        .detail-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .detail-desc {
+            font-size: 14px;
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .detail-meta {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 20px;
+        }
+        .detail-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<button id="list-btn" onclick="showRecordsList()">📋 记录列表</button>
+
+<div id="records-list-container">
+    <div class="list-header">
+        <button onclick="hideRecordsList()" style="background:transparent; color:#333; font-size:24px; padding:0;">←</button>
+        <div class="list-search-bar">
+            <input type="text" id="list-search-input" placeholder="搜索记录..." oninput="filterList()">
+        </div>
+        <div style="width: 24px;"></div> <!-- Spacer for centering -->
+    </div>
+    <div id="list-content">
+        <!-- Records will be injected here -->
+    </div>
+</div>
+
+<div id="map"></div>
+<button id="add-btn" onclick="startAddingMode()" title="添加记录">+</button>
+
+<!-- Add Record Modal -->
+<div id="modal">
+    <div class="modal-content">
+        <h3>添加观鸟记录</h3>
+        <div class="form-group">
+            <label>鸟名/标题</label>
+            <input type="text" id="record-title" placeholder="例如：红嘴鸥">
+        </div>
+        <div class="form-group">
+            <label>描述</label>
+            <textarea id="record-desc" rows="3" placeholder="描述一下当时的场景..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>图片路径</label>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="record-img" placeholder="点击选择图片..." readonly onclick="selectImage()" style="cursor: pointer;">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn-cancel" onclick="closeModal()">取消</button>
+            <button class="btn-save" onclick="saveRecord()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- Detail View Modal -->
+<div id="detail-modal">
+    <div class="detail-content">
+        <img id="detail-img" class="detail-img" src="">
+        <div class="detail-info">
+            <div id="detail-title" class="detail-title"></div>
+            <div id="detail-meta" class="detail-meta"></div>
+            <div id="detail-desc" class="detail-desc"></div>
+            <div class="detail-actions">
+                <button class="btn-save" onclick="locateRecord()">在地图上查看</button>
+                <button class="btn-cancel" onclick="editMapRecord()" style="background:#f39c12;color:white;">编辑</button>
+                <button class="btn-cancel" onclick="closeDetailModal()">关闭</button>
+                <button class="btn-cancel" onclick="deleteMapRecord()" style="background:#e74c3c;color:white;">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ... existing code ...
+    
+    async function deleteMapRecord() {
+        if (!currentDetailRecord) return;
+        if (!confirm('确定要删除这条记录吗？')) return;
+        
+        try {
+            // Find index in allRecords
+            const index = allRecords.findIndex(r => r.id === currentDetailRecord.id);
+            await ipcRenderer.invoke('delete_map_record', { 
+                id: currentDetailRecord.id, 
+                index: index 
+            });
+            
+            closeDetailModal();
+            loadMapRecords(); // Reload all
+        } catch (e) {
+            alert('删除失败: ' + e.message);
+        }
+    }
+
+    function editMapRecord() {
+        if (!currentDetailRecord) return;
+        closeDetailModal();
+        
+        // Reuse the add modal for editing
+        // We need to store the editing ID
+        document.getElementById('modal').dataset.editId = currentDetailRecord.id;
+        document.getElementById('modal').dataset.editIndex = allRecords.findIndex(r => r.id === currentDetailRecord.id);
+        
+        document.getElementById('record-title').value = currentDetailRecord.title;
+        document.getElementById('record-desc').value = currentDetailRecord.desc || '';
+        document.getElementById('record-img').value = currentDetailRecord.image || '';
+        
+        // We can't easily change lat/lng in this simple modal without clicking map
+        // So we assume location is fixed for now, or we could let them click map to update
+        // For simplicity, let's keep location same unless they click map?
+        // Actually, the add modal relies on `currentLatLng`.
+        currentLatLng = { lat: currentDetailRecord.lat, lng: currentDetailRecord.lng };
+        
+        document.getElementById('modal').style.display = 'flex';
+    }
+    
+    // Override saveRecord to handle edit
+    const originalSaveRecord = saveRecord;
+    saveRecord = async function() {
+        const editId = document.getElementById('modal').dataset.editId;
+        if (!editId) {
+            return originalSaveRecord();
+        }
+        
+        // Edit mode
+        const title = document.getElementById('record-title').value;
+        const desc = document.getElementById('record-desc').value;
+        const img = document.getElementById('record-img').value;
+
+        if (!title) {
+            alert('请输入标题');
+            return;
+        }
+
+        const record = {
+            lat: currentLatLng.lat,
+            lng: currentLatLng.lng,
+            title: title,
+            desc: desc,
+            image: img
+        };
+
+        try {
+            await ipcRenderer.invoke('update_map_record', {
+                id: editId,
+                index: parseInt(document.getElementById('modal').dataset.editIndex),
+                record: record
+            });
+            
+            closeModal();
+            loadMapRecords();
+            
+            // Clear edit state
+            delete document.getElementById('modal').dataset.editId;
+            delete document.getElementById('modal').dataset.editIndex;
+        } catch (err) {
+            console.error(err);
+            alert('更新失败：' + err.message);
+        }
+    }
+    
+    // Override closeModal to clear edit state
+    const originalCloseModal = closeModal;
+    closeModal = function() {
+        delete document.getElementById('modal').dataset.editId;
+        delete document.getElementById('modal').dataset.editIndex;
+        originalCloseModal();
+    }
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const { ipcRenderer } = require('electron');
+    
+    // 初始化地图 (默认显示广州)
+    const map = L.map('map').setView([23.1291, 113.2644], 11);
+
+    // 使用 高德地图 瓦片图层 (无需Key，速度快)
+    L.tileLayer('https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+        attribution: '&copy; 高德地图'
+    }).addTo(map);
+
+    let isAdding = false;
+    let currentLatLng = null;
+    let allRecords = [];
+    let markers = [];
+
+    // 加载已有记录
+    async function loadMapRecords() {
+        try {
+            const records = await ipcRenderer.invoke('get_map_records');
+            if (Array.isArray(records)) {
+                allRecords = records;
+                renderMarkers(allRecords);
+            }
+        } catch (e) {
+            console.error("Failed to load records:", e);
+        }
+    }
+
+    // Define icons
+    const defaultIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
+    const selectedIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [35, 57], // Larger size
+        iconAnchor: [17, 57],
+        popupAnchor: [1, -50],
+        shadowSize: [57, 57]
+    });
+
+    let currentSelectedMarker = null;
+
+    function renderMarkers(recordsToRender) {
+        // Clear existing markers
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        recordsToRender.forEach(record => {
+            const popupContent = `
+                <div class="custom-popup">
+                    ${record.image ? `<img src="${record.image}" class="popup-img">` : ''}
+                    <div class="popup-info">
+                        <div class="popup-title">${record.title}</div>
+                        <div class="popup-desc">${record.desc || '无描述'}</div>
+                    </div>
+                </div>
+            `;
+            const marker = L.marker([record.lat, record.lng], { icon: defaultIcon }).addTo(map).bindPopup(popupContent);
+            
+            // Store record id on marker for easy lookup
+            marker.recordId = record.id;
+
+            // Click to select (enlarge)
+            marker.on('click', () => {
+                selectMarker(marker);
+            });
+
+            // Right click to show detail modal and select
+            marker.on('contextmenu', () => {
+                selectMarker(marker);
+                showDetailModal(record);
+            });
+
+            // Reset icon when popup closes
+            marker.on('popupclose', () => {
+                if (currentSelectedMarker === marker) {
+                    marker.setIcon(defaultIcon);
+                    currentSelectedMarker = null;
+                }
+            });
+
+            markers.push(marker);
+        });
+    }
+
+    function selectMarker(marker) {
+        if (currentSelectedMarker && currentSelectedMarker !== marker) {
+            currentSelectedMarker.setIcon(defaultIcon);
+        }
+        currentSelectedMarker = marker;
+        marker.setIcon(selectedIcon);
+    }
+
+    // List View Logic
+    function showRecordsList() {
+        document.getElementById('records-list-container').style.display = 'flex';
+        renderList(allRecords);
+    }
+
+    function hideRecordsList() {
+        document.getElementById('records-list-container').style.display = 'none';
+    }
+
+    function renderList(records) {
+        const container = document.getElementById('list-content');
+        container.innerHTML = '';
+        records.forEach(record => {
+            const card = document.createElement('div');
+            card.className = 'record-card';
+            card.onclick = () => {
+                showDetailModal(record);
+            };
+            
+            const imgHtml = record.image ? `<img src="${record.image}">` : '<div style="width:60px;height:60px;background:#eee;border-radius:4px;flex-shrink:0;"></div>';
+            
+            card.innerHTML = `
+                ${imgHtml}
+                <div class="record-card-info">
+                    <div class="record-card-title">${record.title}</div>
+                    <div class="record-card-desc">${record.desc || '无描述'}</div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // Detail Modal Logic
+    let currentDetailRecord = null;
+
+    function showDetailModal(record) {
+        currentDetailRecord = record;
+        document.getElementById('detail-title').innerText = record.title;
+        document.getElementById('detail-desc').innerText = record.desc || '暂无描述';
+        
+        const img = document.getElementById('detail-img');
+        if (record.image) {
+            img.src = record.image;
+            img.style.display = 'block';
+        } else {
+            img.style.display = 'none';
+        }
+        
+        // Format date if id is timestamp
+        const date = new Date(record.id);
+        document.getElementById('detail-meta').innerText = `记录时间: ${date.toLocaleString()} | 坐标: ${record.lat.toFixed(4)}, ${record.lng.toFixed(4)}`;
+
+        document.getElementById('detail-modal').style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+        document.getElementById('detail-modal').style.display = 'none';
+        currentDetailRecord = null;
+    }
+
+    function locateRecord() {
+        if (!currentDetailRecord) return;
+        
+        // 保存引用，因为 closeDetailModal 会清空 currentDetailRecord
+        const targetRecord = currentDetailRecord;
+        
+        closeDetailModal();
+        hideRecordsList();
+        
+        // Center the map
+        map.setView([targetRecord.lat, targetRecord.lng], 15);
+        
+        // Find and select the marker
+        markers.forEach(marker => {
+            // Use recordId if available, or fallback to coordinate matching
+            if (marker.recordId === targetRecord.id) {
+                selectMarker(marker);
+                marker.openPopup();
+            } else {
+                // Fallback for legacy records without id on marker (though we added it above)
+                const mLatLng = marker.getLatLng();
+                if (Math.abs(mLatLng.lat - targetRecord.lat) < 0.000001 && 
+                    Math.abs(mLatLng.lng - targetRecord.lng) < 0.000001) {
+                    selectMarker(marker);
+                    marker.openPopup();
+                }
+            }
+        });
+    }
+
+    function filterList() {
+        const query = document.getElementById('list-search-input').value.trim().toLowerCase();
+        if (!query) {
+            renderList(allRecords);
+            return;
+        }
+        const filtered = allRecords.filter(r => 
+            (r.title && r.title.toLowerCase().includes(query)) || 
+            (r.desc && r.desc.toLowerCase().includes(query))
+        );
+        renderList(filtered);
+    }
+
+    function addMarkerToMap(record) {
+        // Helper to add single marker (used after saving)
+        // But we should probably just re-render or add to list
+        allRecords.push(record);
+        renderMarkers(allRecords);
+    }
+
+    function startAddingMode() {
+        isAdding = true;
+        document.getElementById('map').style.cursor = 'crosshair';
+        // alert('请点击地图选择位置');
+    }
+
+    map.on('click', function(e) {
+        if (!isAdding) return;
+        
+        currentLatLng = e.latlng;
+        document.getElementById('modal').style.display = 'flex';
+        isAdding = false;
+        document.getElementById('map').style.cursor = '';
+    });
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+        clearForm();
+    }
+
+    function clearForm() {
+        document.getElementById('record-title').value = '';
+        document.getElementById('record-desc').value = '';
+        document.getElementById('record-img').value = '';
+    }
+
+    async function selectImage() {
+        const path = await ipcRenderer.invoke('select-image');
+        if (path) {
+            document.getElementById('record-img').value = path;
+        }
+    }
+
+    async function saveRecord() {
+        const title = document.getElementById('record-title').value;
+        const desc = document.getElementById('record-desc').value;
+        const img = document.getElementById('record-img').value;
+
+        if (!title) {
+            alert('请输入标题');
+            return;
+        }
+
+        const record = {
+            id: Date.now(),
+            lat: currentLatLng.lat,
+            lng: currentLatLng.lng,
+            title: title,
+            desc: desc,
+            image: img
+        };
+
+        try {
+            await ipcRenderer.invoke('add_map_record', record);
+            // addMarkerToMap(record); // This now updates allRecords and re-renders
+            // But wait, addMarkerToMap implementation above pushes to allRecords.
+            // So we should call it.
+            addMarkerToMap(record);
+            closeModal();
+        } catch (err) {
+            console.error(err);
+            alert('保存失败：' + err.message);
+        }
+    }
+
+    loadMapRecords();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>图鉴查询</title>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+    <div class="container">
+        <h3>请选择查询方式</h3>
+        
+        <div class="grid-container">
+            <div style="text-align: center;">
+                <button class="w-100" onclick="area_search()" style="height: 100px; font-size: 18px;">
+                    🌍<br>按地区检索
+                </button>
+            </div>
+            <div style="text-align: center;">
+                <button class="w-100" onclick="name_search()" style="height: 100px; font-size: 18px;">
+                    🐦<br>按名称检索
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        window.ipcRenderer = ipcRenderer;
+        
+        async function area_search(){
+            await ipcRenderer.invoke('area_search')
+        }
+        
+        async function name_search(){
+            await ipcRenderer.invoke('name_search')
+        }
+    </script>
+</body>
+</html>

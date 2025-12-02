@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>添加观鸟记录</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        /* Extend common styles to other input types */
+        input[type="datetime-local"],
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        input:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>添加观鸟记录</h2>
+        <form id="recordForm">
+            <label>观测时间：
+                <input type="datetime-local" id="time" required>
+            </label>
+            <label>地点：
+                <input type="text" id="location" required>
+            </label>
+            <label>数量：
+                <input type="number" id="count" required>
+            </label>
+            <label>种类：
+                <input type="text" id="species" required>
+            </label>
+            <label>性别：
+                <input type="text" id="gender" required>
+            </label>
+            <button type="submit" style="width: 100%; margin-top: 10px;">提交</button>
+        </form>
+    </div>
+
+<script>
+    const { ipcRenderer } = require('electron')
+    
+    const form = document.getElementById('recordForm')
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const newRecord = {
+            time: document.getElementById('time').value,
+            location: document.getElementById('location').value,
+            count: document.getElementById('count').value,
+            species: document.getElementById('species').value,
+            gender: document.getElementById('gender').value
+        }
+        try {
+            await ipcRenderer.invoke('add_record', newRecord)
+            window.close() // 关闭弹窗
+        } catch (err) {
+            console.error(err);
+            alert('添加失败：' + err.message);
+        }
+    })
+</script>
+</body>
+</html>
