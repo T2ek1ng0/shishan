@@ -99,7 +99,10 @@
       btn.addEventListener('click', async () => {
         const index = parseInt(btn.dataset.index)
         const id = btn.dataset.id
-        const record = records[index]
+        let record = records[index]
+        if (id) {
+            record = records.find(r => r.id == id) || record
+        }
         showEditModal(record, index, id)
       })
     })
@@ -148,7 +151,12 @@
           document.body.appendChild(modal)
       }
       
-      document.getElementById('edit-time').value = record.time
+      // Format time for datetime-local input (YYYY-MM-DDTHH:mm)
+      let timeVal = record.time;
+      if (timeVal && timeVal.includes('T') && timeVal.length > 16) {
+          timeVal = timeVal.substring(0, 16);
+      }
+      document.getElementById('edit-time').value = timeVal
       document.getElementById('edit-location').value = record.location
       document.getElementById('edit-count').value = record.count
       document.getElementById('edit-species').value = record.species
@@ -162,23 +170,37 @@
   }
 
   async function saveEdit() {
+      if (!currentEditId && records[currentEditIndex] && records[currentEditIndex].id) {
+          currentEditId = records[currentEditIndex].id;
+      }
+
       const newRecord = {
           time: document.getElementById('edit-time').value,
           location: document.getElementById('edit-location').value,
-          count: document.getElementById('edit-count').value,
+          count: document.getElementById('edit-count').value, // Keep as string to match add_record
           species: document.getElementById('edit-species').value,
           gender: document.getElementById('edit-gender').value
       }
       
+      // Remove empty fields to avoid overwriting with null/empty if that's not intended
+      // But here fields are required usually.
+      
       try {
-          await ipcRenderer.invoke('update_record', { 
+          console.log('Updating record:', { id: currentEditId, index: currentEditIndex, record: newRecord });
+          const success = await ipcRenderer.invoke('update_record', { 
               id: currentEditId, 
               index: currentEditIndex, 
               record: newRecord 
           })
+          
+          if (!success) {
+              throw new Error('更新未生效 (可能记录不存在或ID不匹配)')
+          }
+          
           closeEditModal()
           loadRecords()
       } catch (e) {
+          console.error('Update failed:', e);
           alert('更新失败: ' + e.message)
       }
   }

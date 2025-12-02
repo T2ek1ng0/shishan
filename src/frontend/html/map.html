@@ -92,78 +92,186 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: white;
+            background: #f5f7fa;
             z-index: 1500;
             flex-direction: column;
-            padding: 20px;
+            padding: 0;
             box-sizing: border-box;
         }
         
         .list-header {
+            background: white;
+            padding: 15px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            z-index: 10;
         }
         
         .list-search-bar {
             display: flex;
             gap: 10px;
+            flex: 1;
+            max-width: 600px;
+            margin: 0 20px;
+        }
+
+        .list-search-bar input {
             width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
+            padding: 10px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            background: #f9f9f9;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .list-search-bar input:focus {
+            background: white;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            outline: none;
         }
         
+        .filter-section {
+            background: white;
+            padding: 12px 20px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border-bottom: 1px solid #f0f0f0;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Hide scrollbar for cleaner look */
+        .filter-section::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Common style for filter controls */
+        .filter-control {
+            height: 32px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 16px; /* More rounded */
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 13px;
+            color: #495057;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+            line-height: 1; /* Fix vertical alignment */
+        }
+        
+        .filter-control:hover {
+            background: #e9ecef;
+            border-color: #dee2e6;
+        }
+
+        /* Mine Only Toggle */
+        .filter-toggle {
+            cursor: pointer;
+            user-select: none;
+        }
+        .filter-toggle input {
+            margin-right: 6px;
+            accent-color: #3498db;
+            width: 14px;
+            height: 14px;
+        }
+        .filter-toggle.active {
+            background: #e7f5ff;
+            border-color: #3498db;
+            color: #1971c2;
+        }
+
+        /* Date Range */
+        .date-range-group {
+            padding: 0 8px;
+            gap: 5px;
+        }
+        .date-input {
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            color: #495057;
+            width: 105px;
+            outline: none;
+            font-family: inherit;
+        }
+        .date-separator {
+            color: #adb5bd;
+        }
+
         #list-content {
             flex: 1;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            padding: 10px;
+            gap: 15px;
+            padding: 20px;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            box-sizing: border-box;
         }
         
         .record-card {
-            border: 1px solid #eee;
-            border-radius: 8px;
-            padding: 10px;
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
             display: flex;
-            gap: 15px;
+            gap: 20px;
             cursor: pointer;
-            transition: box-shadow 0.2s;
+            transition: all 0.3s ease;
             width: 100%;
             box-sizing: border-box;
-            align-items: center;
+            align-items: flex-start;
             background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         .record-card:hover {
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            background: #f9f9f9;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
         }
         .record-card img {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             object-fit: cover;
-            border-radius: 4px;
+            border-radius: 8px;
             flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .record-card-info {
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            gap: 5px;
         }
         .record-card-title {
+            font-size: 18px;
             font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 4px;
+            color: #2c3e50;
         }
         .record-card-desc {
-            font-size: 13px;
+            font-size: 14px;
             color: #666;
-            white-space: nowrap;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+        }
+        .record-card-meta {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
         .detail-actions {
@@ -292,6 +400,23 @@
         </div>
         <div style="width: 24px;"></div>
     </div>
+    
+    <!-- Filter Controls -->
+    <div class="filter-section">
+        <!-- Mine Only -->
+        <label class="filter-control filter-toggle" id="mine-chip">
+            <input type="checkbox" id="filter-mine-only" onchange="filterList()"> 
+            <span>只看我的</span>
+        </label>
+        
+        <!-- Date Range -->
+        <div class="filter-control date-range-group" title="筛选时间范围">
+            <input type="date" id="date-start" class="date-input" onchange="filterList()">
+            <span class="date-separator">-</span>
+            <input type="date" id="date-end" class="date-input" onchange="filterList()">
+        </div>
+    </div>
+
     <div id="list-content"></div>
 </div>
 
@@ -515,6 +640,12 @@
             if (Array.isArray(records)) {
                 allRecords = records;
                 renderMarkers(allRecords);
+                
+                // Refresh list if visible
+                if (document.getElementById('records-list-container') && 
+                    document.getElementById('records-list-container').style.display === 'flex') {
+                    filterList();
+                }
             }
         } catch (e) {
             console.error("Failed to load records:", e);
@@ -584,14 +715,21 @@
             if (record.images && record.images.length > 0) mainImg = record.images[0];
             else if (record.image) mainImg = record.image;
             
-            const imgHtml = mainImg ? `<img src="${mainImg}">` : '<div style="width:60px;height:60px;background:#eee;border-radius:4px;flex-shrink:0;"></div>';
+            const imgHtml = mainImg 
+                ? `<img src="${mainImg}">` 
+                : '<div style="width:80px;height:80px;background:#f0f0f0;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:20px;">📷</div>';
             
+            const dateStr = record.created_at ? new Date(record.created_at).toLocaleDateString() : '';
+
             card.innerHTML = `
                 ${imgHtml}
                 <div class="record-card-info">
                     <div class="record-card-title">${record.title}</div>
-                    <div class="record-card-desc">${record.desc || '无描述'}</div>
-                    <div style="font-size:12px;color:#999;">${record.profiles?.username || '未知用户'}</div>
+                    <div class="record-card-desc">${record.desc || '暂无描述'}</div>
+                    <div class="record-card-meta">
+                        <span>👤 ${record.profiles?.username || '未知用户'}</span>
+                        ${dateStr ? `<span>📅 ${dateStr}</span>` : ''}
+                    </div>
                 </div>
             `;
             container.appendChild(card);
@@ -849,14 +987,66 @@
 
     function filterList() {
         const query = document.getElementById('list-search-input').value.trim().toLowerCase();
-        if (!query) {
-            renderList(allRecords);
-            return;
+        const mineOnly = document.getElementById('filter-mine-only').checked;
+        // const sortOrder = document.getElementById('sort-order').value; // Removed
+        const dateStart = document.getElementById('date-start').value;
+        const dateEnd = document.getElementById('date-end').value;
+
+        // Update UI state for chip
+        const mineChip = document.getElementById('mine-chip');
+        if (mineChip) {
+            if (mineOnly) mineChip.classList.add('active');
+            else mineChip.classList.remove('active');
         }
-        const filtered = allRecords.filter(r => 
-            (r.title && r.title.toLowerCase().includes(query)) || 
-            (r.desc && r.desc.toLowerCase().includes(query))
-        );
+
+        let filtered = allRecords.filter(r => {
+            const matchQuery = !query || 
+                (r.title && r.title.toLowerCase().includes(query)) || 
+                (r.desc && r.desc.toLowerCase().includes(query));
+            
+            const matchMine = !mineOnly || r.is_mine;
+            
+            // Date Filter
+            let recordTime = 0;
+            if (r.created_at) recordTime = new Date(r.created_at).getTime();
+            else if (typeof r.id === 'number' && r.id > 1000000000000) recordTime = r.id;
+            
+            let matchDate = true;
+            if (recordTime > 0) {
+                if (dateStart) {
+                    const startTime = new Date(dateStart).getTime();
+                    if (recordTime < startTime) matchDate = false;
+                }
+                if (dateEnd && matchDate) {
+                    // End date should include the whole day, so add 24h or set to end of day
+                    const endTime = new Date(dateEnd).getTime() + 86400000; 
+                    if (recordTime >= endTime) matchDate = false;
+                }
+            }
+            
+            return matchQuery && matchMine && matchDate;
+        });
+
+        // Sort (Default to Newest)
+        filtered.sort((a, b) => {
+            // Use created_at if available, otherwise fallback to id (assuming id is timestamp for local records)
+            // For Supabase records, id is int, created_at is string.
+            // We need to be careful.
+            
+            let timeA, timeB;
+            
+            if (a.created_at) timeA = new Date(a.created_at).getTime();
+            else timeA = typeof a.id === 'number' && a.id > 1000000000000 ? a.id : 0; // Heuristic for timestamp ID
+
+            if (b.created_at) timeB = new Date(b.created_at).getTime();
+            else timeB = typeof b.id === 'number' && b.id > 1000000000000 ? b.id : 0;
+
+            // If both are 0 (e.g. old legacy records without timestamp), keep original order or sort by ID
+            if (timeA === 0 && timeB === 0) return b.id - a.id;
+
+            return timeB - timeA; // Always Newest First
+        });
+
         renderList(filtered);
     }
     

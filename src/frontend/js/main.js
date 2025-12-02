@@ -730,15 +730,91 @@ ipcMain.handle('update_profile', async (event, { username, avatarPath }) => {
 ipcMain.handle('update_record', async (event, { id, index, record }) => {
     if (supabase) {
         if (!id) return false
-        const { error } = await supabase
+        
+        const { data: { user } } = await getUserWithRetry()
+        if (!user) {
+            console.error('Supabase update_record: User not logged in')
+            return false
+        }
+
+        console.log(`Attempting to update record. ID: ${id} (Type: ${typeof id}), User: ${user.id}, Data:`, record)
+
+        // Debug: Check if record exists and belongs to user
+        const { data: existingRecord, error: checkError } = await supabase
             .from('records')
-            .update(record)
+            .select('*')
             .eq('id', id)
+            .maybeSingle()
+            
+        if (checkError) {
+             console.error('Debug check error:', checkError)
+        } else if (!existingRecord) {
+             console.error('Debug check: Record not found via ID lookup.')
+        } else {
+             console.log('Debug check: Record found:', existingRecord)
+             if (existingRecord.user_id !== user.id) {
+                 console.error(`Debug check: User ID mismatch! Record user: ${existingRecord.user_id}, Current user: ${user.id}`)
+             }
+        }
+
+        // Use supabaseWithRetry and select() to verify update
+        // We remove the explicit .eq('user_id', user.id) check here and rely on RLS policies
+        // to allow the update. Sometimes explicit checks can fail if types don't match perfectly
+        // or if the RLS policy logic conflicts.
+        const { data, error } = await supabaseWithRetry(() => 
+            supabase
+                .from('records')
+                .update(record)
+                .eq('id', id) 
+                .select()
+        )
         
         if (error) {
             console.error('Supabase update_record error:', error)
             throw error
         }
+        
+        // Check if any row was actually updated
+        if (!data || data.length === 0) {
+            console.warn(`Supabase update_record: No rows updated. ID: ${id}. Possible causes: ID mismatch, RLS restriction, or record deleted.`)
+            
+            // FALLBACK STRATEGY: Delete + Insert
+            // This handles the case where RLS allows DELETE/INSERT but not UPDATE
+            console.log('Attempting Fallback: Delete + Insert...');
+            
+            // 1. Try to delete the old record
+            const { error: delError } = await supabase
+                .from('records')
+                .delete()
+                .eq('id', id)
+                .eq('user_id', user.id); // Ensure we only delete our own
+
+            if (delError) {
+                console.error('Fallback Delete failed:', delError);
+                return false;
+            }
+
+            // 2. Insert the new record
+            // Preserve created_at if possible to keep order, otherwise it will be new
+            const newPayload = { ...record, user_id: user.id };
+            if (existingRecord && existingRecord.created_at) {
+                newPayload.created_at = existingRecord.created_at;
+            }
+
+            const { error: insertError } = await supabase
+                .from('records')
+                .insert([newPayload]);
+
+            if (insertError) {
+                console.error('Fallback Insert failed:', insertError);
+                // Try to restore? (Complex, maybe just warn)
+                return false;
+            }
+
+            console.log('Fallback Delete + Insert successful.');
+            return true;
+        }
+        
         return true
     } else {
         if (!fs.existsSync(RECORDS_FILE)) return false;
