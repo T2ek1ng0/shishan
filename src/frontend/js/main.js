@@ -150,6 +150,7 @@ ipcMain.handle('open-image-selector', async () => {
         parent: mainWindow,
         // modal: true,
         resizable: true,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -187,6 +188,7 @@ ipcMain.handle('search_bird_newpage', async()=>{
         // modal: true,
         resizable: true,
         show: false,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -240,6 +242,7 @@ ipcMain.handle('todays_newpage', async()=>{
         // modal: true,
         resizable: true,
         show: false,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -304,6 +307,7 @@ ipcMain.handle('open_records', async()=>{
         // modal: false,
         resizable: true,
         show: false,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -408,6 +412,7 @@ ipcMain.handle('open_add_record_window', async () => {
         modal: true,
         resizable: true,
         show: false,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
@@ -457,6 +462,7 @@ ipcMain.handle('open_map_window', async () => {
         height: 800,
         resizable: true,
         show: false,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -836,6 +842,7 @@ ipcMain.handle('open_login_window', async () => {
         height: 600,
         resizable: false,
         show: false,
+        icon: path.join(__dirname, '../assets/favicon.ico'),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
