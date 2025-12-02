@@ -129,14 +129,14 @@ app.whenReady().then(()=>{
         }
     })
 })
-ipcMain.handle('select-image', async () => {
+ipcMain.handle('select-image', async (event, allowMultiple = false) => {
     const result = await dialog.showOpenDialog({
         title: '选择图片',
         filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png'] }],
-        properties: ['openFile']
+        properties: ['openFile', allowMultiple ? 'multiSelections' : null].filter(Boolean)
     })
     if (result.canceled || result.filePaths.length === 0) return null
-    return result.filePaths[0]
+    return allowMultiple ? result.filePaths : result.filePaths[0]
 })
 let selectImgWin
 ipcMain.handle('open-image-selector', async () => {
@@ -322,28 +322,42 @@ async function supabaseWithRetry(operation, maxRetries = 3) {
     for (let i = 0; i < maxRetries; i++) {
         try {
             const result = await operation();
-            if (!result.error) return result;
-            lastError = result.error;
-            console.warn(`Supabase operation failed (attempt ${i + 1}/${maxRetries}):`, lastError.message);
+            // If result is null/undefined (e.g. from a void function), treat as success
+            if (!result) return result;
+            // If result has error property, treat as failure
+            if (result.error) {
+                lastError = result.error;
+                console.warn(`Supabase operation failed (attempt ${i + 1}/${maxRetries}):`, lastError.message);
+            } else {
+                return result;
+            }
         } catch (err) {
             lastError = err;
             console.warn(`Supabase operation threw (attempt ${i + 1}/${maxRetries}):`, err.message);
         }
-        if (i < maxRetries - 1) await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+        if (i < maxRetries - 1) await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
     }
     return { data: null, error: lastError };
 }
 
+// Helper to get user with retry
+async function getUserWithRetry() {
+    if (!supabase) return { data: { user: null } };
+    return await supabaseWithRetry(() => supabase.auth.getUser());
+}
+
 ipcMain.handle('get_records', async () => {
     if (supabase) {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user } } = await getUserWithRetry()
         if (!user) return []
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseWithRetry(() => supabase
             .from('records')
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
+        )
         
         if (error) {
             console.error('Supabase get_records error:', error)
@@ -360,12 +374,13 @@ ipcMain.handle('get_records', async () => {
 
 ipcMain.handle('add_record', async (event, record) => {
     if (supabase) {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user } } = await getUserWithRetry()
         if (!user) throw new Error('User not logged in')
 
-        const { error } = await supabase
+        const { error } = await supabaseWithRetry(() => supabase
             .from('records')
             .insert([{ ...record, user_id: user.id }])
+        )
         
         if (error) {
             console.error('Supabase add_record error:', error)
@@ -456,19 +471,24 @@ ipcMain.handle('open_map_window', async () => {
 
 ipcMain.handle('get_map_records', async () => {
     if (supabase) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return []
+        const { data: { user } } = await getUserWithRetry()
+        // if (!user) return [] // Allow viewing without login? Or maybe just return all.
+        // Let's allow viewing all records even if not logged in, but we need user to know "is_mine"
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseWithRetry(() => supabase
             .from('map_records')
-            .select('*')
-            .eq('user_id', user.id)
+            .select('*, profiles(username, avatar_url)')
+        )
         
         if (error) {
             console.error('Supabase get_map_records error:', error)
             return []
         }
-        return data
+        
+        return data.map(r => ({
+            ...r,
+            is_mine: user ? r.user_id === user.id : false
+        }))
     } else {
         if (!fs.existsSync(MAP_RECORDS_FILE)) return []
         return JSON.parse(fs.readFileSync(MAP_RECORDS_FILE, 'utf-8'))
@@ -477,44 +497,66 @@ ipcMain.handle('get_map_records', async () => {
 
 ipcMain.handle('add_map_record', async (event, record) => {
     if (supabase) {
-        // 处理图片上传
-        let imageUrl = record.image;
-        if (record.image && fs.existsSync(record.image)) {
+        const { data: { user } } = await getUserWithRetry()
+        if (!user) throw new Error('User not logged in')
+
+        let imageUrls = [];
+        
+        // Handle multiple images
+        if (record.images && Array.isArray(record.images)) {
+            for (const imgPath of record.images) {
+                if (fs.existsSync(imgPath)) {
+                    try {
+                        const fileBuffer = fs.readFileSync(imgPath);
+                        const fileName = `map_images/${Date.now()}_${Math.random().toString(36).substring(7)}_${path.basename(imgPath)}`;
+                        
+                        const { error: uploadError } = await supabaseWithRetry(() => supabase.storage
+                            .from('birds')
+                            .upload(fileName, fileBuffer, {
+                                contentType: 'image/jpeg'
+                            })
+                        );
+
+                        if (!uploadError) {
+                            const { data: { publicUrl } } = supabase.storage
+                                .from('birds')
+                                .getPublicUrl(fileName);
+                            imageUrls.push(publicUrl);
+                        }
+                    } catch (err) {
+                        console.error('Image upload failed:', err);
+                    }
+                }
+            }
+        }
+        // Fallback/Legacy single image
+        else if (record.image && fs.existsSync(record.image)) {
             try {
                 const fileBuffer = fs.readFileSync(record.image);
                 const fileName = `map_images/${Date.now()}_${path.basename(record.image)}`;
-                
-                const { data, error: uploadError } = await supabase.storage
+                const { error: uploadError } = await supabaseWithRetry(() => supabase.storage
                     .from('birds')
-                    .upload(fileName, fileBuffer, {
-                        contentType: 'image/jpeg' // 假设是 jpg，实际应根据扩展名判断
-                    });
-
-                if (uploadError) throw uploadError;
-
-                // 获取公开链接
-                const { data: { publicUrl } } = supabase.storage
-                    .from('birds')
-                    .getPublicUrl(fileName);
-                
-                imageUrl = publicUrl;
-            } catch (err) {
-                console.error('Image upload failed:', err);
-            }
+                    .upload(fileName, fileBuffer, { contentType: 'image/jpeg' })
+                );
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage.from('birds').getPublicUrl(fileName);
+                    imageUrls.push(publicUrl);
+                }
+            } catch (err) { console.error('Legacy image upload failed:', err); }
         }
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error('User not logged in')
-
-        const newRecord = { ...record, image: imageUrl, user_id: user.id };
-        // 移除 id，让数据库自动生成，或者保留 id 如果数据库允许
-        // 通常 Supabase 会自动生成 id，但这里我们保留前端生成的 id 作为 timestamp 也可以，
-        // 只要数据库 id 字段不是自增主键冲突即可。建议让数据库生成 id。
+        const newRecord = { 
+            ...record, 
+            images: imageUrls, 
+            image: imageUrls[0] || null, // Keep legacy field populated
+            user_id: user.id 
+        };
         delete newRecord.id; 
 
-        const { error } = await supabase
+        const { error } = await supabaseWithRetry(() => supabase
             .from('map_records')
             .insert([newRecord])
+        )
         
         if (error) {
             console.error('Supabase add_map_record error:', error)
@@ -531,6 +573,153 @@ ipcMain.handle('add_map_record', async (event, record) => {
         return true
     }
 })
+
+// Social Features Handlers
+ipcMain.handle('get_record_interactions', async (event, recordId) => {
+    if (!supabase) return { likes: 0, comments: [], is_liked: false };
+    
+    const { data: { user } } = await getUserWithRetry();
+
+    // Get Likes Count
+    const { count: likesCount } = await supabaseWithRetry(() => supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('record_id', recordId)
+    );
+
+    // Check if current user liked
+    let isLiked = false;
+    if (user) {
+        const { data } = await supabaseWithRetry(() => supabase
+            .from('likes')
+            .select('id')
+            .eq('record_id', recordId)
+            .eq('user_id', user.id)
+            .maybeSingle()
+        );
+        isLiked = !!data;
+    }
+
+    // Get Comments
+    const { data: comments } = await supabaseWithRetry(() => supabase
+        .from('comments')
+        .select('*, profiles(username, avatar_url)')
+        .eq('record_id', recordId)
+        .order('created_at', { ascending: true })
+    );
+
+    return { likes: likesCount || 0, comments: comments || [], is_liked: isLiked };
+});
+
+ipcMain.handle('toggle_like', async (event, recordId) => {
+    if (!supabase) return false;
+    const { data: { user } } = await getUserWithRetry();
+    if (!user) throw new Error('请先登录');
+
+    const { data } = await supabaseWithRetry(() => supabase
+        .from('likes')
+        .select('id')
+        .eq('record_id', recordId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+    );
+
+    if (data) {
+        await supabaseWithRetry(() => supabase.from('likes').delete().eq('id', data.id));
+        return false; // unliked
+    } else {
+        await supabaseWithRetry(() => supabase.from('likes').insert([{ record_id: recordId, user_id: user.id }]));
+        return true; // liked
+    }
+});
+
+ipcMain.handle('add_comment', async (event, { recordId, content }) => {
+    if (!supabase) return false;
+    const { data: { user } } = await getUserWithRetry();
+    if (!user) throw new Error('请先登录');
+
+    const { error } = await supabaseWithRetry(() => supabase
+        .from('comments')
+        .insert([{ record_id: recordId, user_id: user.id, content }])
+    );
+    
+    if (error) throw error;
+    return true;
+});
+
+ipcMain.handle('delete_comment', async (event, commentId) => {
+    if (!supabase) return false;
+    const { data: { user } } = await getUserWithRetry();
+    if (!user) throw new Error('请先登录');
+
+    const { error } = await supabaseWithRetry(() => supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', user.id) // Double check ownership, though RLS handles it
+    );
+    
+    if (error) throw error;
+    return true;
+});
+
+ipcMain.handle('get_current_user_profile', async () => {
+    if (!supabase) return null;
+    const { data: { user } } = await getUserWithRetry();
+    if (!user) return null;
+    
+    const { data: profile } = await supabaseWithRetry(() => supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+    );
+        
+    return { ...user, profile };
+});
+
+ipcMain.handle('update_profile', async (event, { username, avatarPath }) => {
+    if (!supabase) return false;
+    const { data: { user } } = await getUserWithRetry();
+    if (!user) return false;
+
+    let avatarUrl = null;
+    if (avatarPath && fs.existsSync(avatarPath)) {
+        try {
+            const fileBuffer = fs.readFileSync(avatarPath);
+            const fileName = `avatars/${user.id}_${Date.now()}.jpg`;
+            
+            const { error: uploadError } = await supabaseWithRetry(() => supabase.storage
+                .from('birds') 
+                .upload(fileName, fileBuffer, { contentType: 'image/jpeg', upsert: true })
+            );
+
+            if (uploadError) {
+                console.error("Avatar upload error:", uploadError);
+                return { success: false, error: '头像上传失败: ' + uploadError.message };
+            }
+
+            const { data: { publicUrl } } = supabase.storage.from('birds').getPublicUrl(fileName);
+            avatarUrl = publicUrl;
+            
+        } catch (e) { 
+            console.error("Avatar upload exception:", e); 
+            return { success: false, error: '头像上传出错: ' + e.message };
+        }
+    }
+
+    const updates = { updated_at: new Date() };
+    if (username) updates.username = username;
+    if (avatarUrl) updates.avatar_url = avatarUrl;
+
+    const { error } = await supabaseWithRetry(() => supabase
+        .from('profiles')
+        .upsert({ id: user.id, ...updates })
+    );
+    
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+});
 
 ipcMain.handle('update_record', async (event, { id, index, record }) => {
     if (supabase) {
@@ -580,9 +769,44 @@ ipcMain.handle('delete_map_record', async (event, { id, index }) => {
 ipcMain.handle('update_map_record', async (event, { id, index, record }) => {
     if (supabase) {
         if (!id) return false
+
+        let imageUrls = [];
+        // Handle images (mix of existing URLs and new local paths)
+        if (record.images && Array.isArray(record.images)) {
+            for (const imgPath of record.images) {
+                if (typeof imgPath === 'string' && (imgPath.startsWith('http') || imgPath.startsWith('//'))) {
+                    imageUrls.push(imgPath);
+                } else if (typeof imgPath === 'string' && fs.existsSync(imgPath)) {
+                    try {
+                        const fileBuffer = fs.readFileSync(imgPath);
+                        const fileName = `map_images/${Date.now()}_${Math.random().toString(36).substring(7)}_${path.basename(imgPath)}`;
+                        
+                        const { error: uploadError } = await supabaseWithRetry(() => supabase.storage
+                            .from('birds')
+                            .upload(fileName, fileBuffer, { contentType: 'image/jpeg' })
+                        );
+
+                        if (!uploadError) {
+                            const { data: { publicUrl } } = supabase.storage.from('birds').getPublicUrl(fileName);
+                            imageUrls.push(publicUrl);
+                        }
+                    } catch (err) {
+                        console.error('Image upload failed:', err);
+                    }
+                }
+            }
+        }
+
+        const updates = {
+            ...record,
+            images: imageUrls,
+            image: imageUrls[0] || null
+        };
+        delete updates.id; // Ensure ID is not updated
+
         const { error } = await supabase
             .from('map_records')
-            .update(record)
+            .update(updates)
             .eq('id', id)
         
         if (error) {
