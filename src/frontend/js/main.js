@@ -266,12 +266,12 @@ ipcMain.handle('todays_recommend', async(event, area)=>{
     }
 })
 
-const API_KEY = "sk-1817f4e4e7254f70aa6c45b957b4cc5c"
-const APP_ID = "2f91c1b54ec149f6b0ab4394169dd714"
+const API_KEY = "your api_key"
+const APP_ID = "ignore it if you don't use bailian api_key"
 async function call_llm(promptText){
     try {
         const response = await axios.post(
-            `https://dashscope.aliyuncs.com/api/v1/apps/${APP_ID}/completion`,
+            `https://dashscope.aliyuncs.com/api/v1/apps/${APP_ID}/completion`,  // or https://api.{something}.com/v1
             {
                 input: {
                     prompt: promptText

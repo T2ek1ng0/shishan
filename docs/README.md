@@ -20,6 +20,7 @@ npm init -y
 npm install electron --save-dev
 npm install axios
 pip install pyinstaller
+npm install @supabase/supabase-js
 ```
 
 打包python脚本
@@ -30,6 +31,8 @@ pyinstaller --onedir --name model_predict --add-data "my_model.pth:." --add-data
 ```
 
 运行
+
+由于调用了大模型API，请自行替换`\src\frontend\js\main.js`(约269-274行)和`\src\backend\supabase_config.js`(约5-6行)中有关API调用的内容
 
 ```
 cd {你存放代码的文件夹}
